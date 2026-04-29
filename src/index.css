@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  
+  --color-apple-blue: #0066cc;
+  --color-apple-gray-50: #f5f5f7;
+  --color-apple-gray-100: #ebebeb;
+  --color-apple-gray-200: #d2d2d7;
+  --color-apple-gray-300: #86868b;
+  --color-apple-gray-400: #6e6e73;
+  --color-apple-gray-500: #424245;
+  --color-apple-gray-600: #1d1d1f;
+
+  --shadow-apple-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-apple-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  @apply font-sans bg-apple-gray-50 text-apple-gray-600 antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  @apply bg-apple-gray-50 min-h-screen;
+}
+
+/* Scrollbar hide for mobile feel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

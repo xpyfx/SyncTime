@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information and settings",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "blockedUsers": { "type": "array", "items": { "type": "string" } },
+        "friends": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "username"]
+    },
+    "Trip": {
+      "title": "Travel Recruitment Post",
+      "description": "A post to find travel partners",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "country": { "type": "string" },
+        "cities": { "type": "array", "items": { "type": "string" } },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "isAdjustable": { "type": "boolean" },
+        "departureCountry": { "type": "string" },
+        "departureCity": { "type": "string" },
+        "totalPeople": { "type": "number" },
+        "recruitingCount": { "type": "number" },
+        "seekingGender": { "type": "string", "enum": ["男", "女", "男女"] },
+        "arrivalMethod": { "type": "string" },
+        "transportInfo": { "type": "string" },
+        "accommodationStatus": { "type": "string", "enum": ["已定", "待定"] },
+        "accommodationAddress": { "type": "string" },
+        "accommodationMapLink": { "type": "string" },
+        "notes": { "type": "string" },
+        "budgetLevel": { "type": "string", "enum": ["高價", "低價"] },
+        "status": { "type": "string", "enum": ["徵人中", "已滿員", "已取消"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "country", "cities", "startDate", "endDate"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request",
+      "description": "Request to connect between users",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "status", "createdAt"]
+    },
+    "BarPost": {
+      "title": "Travel Bar Post",
+      "description": "Social feed post for experiences, tips, warnings",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "content"]
+    },
+    "ChatRoom": {
+      "title": "Chat Room",
+      "description": "Private chat between two users",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastUpdatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Individual messages in a chat room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "sharedPostId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Travel recruitment posts"
+    },
+    "/barPosts/{postId}": {
+      "schema": "BarPost",
+      "description": "Social travel experiences"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Friendship requests"
+    },
+    "/chatRooms/{roomId}": {
+      "schema": "ChatRoom",
+      "description": "Chat rooms"
+    },
+    "/chatRooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages in a chat room"
+    }
+  }
+}
