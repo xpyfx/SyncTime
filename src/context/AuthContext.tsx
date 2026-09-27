@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, OAuthProvider, signOut, deleteUser, reauthenticateWithPopup } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
-import { UserProfile } from '../types';
+import { DEFAULT_PUSH_NOTIFICATION_PREFERENCES, UserProfile } from '../types';
 
 interface AuthModalState {
   isOpen: boolean;
@@ -70,6 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // 不再使用 Google email 前綴
               username: '',
               usernameCustomized: false,
+              pushNotificationPreferences: {
+                ...DEFAULT_PUSH_NOTIFICATION_PREFERENCES
+              },
 
               avatarUrl: user.photoURL || '',
               email: user.email || '',
@@ -439,6 +442,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           hiddenItems: [],
           interestTags: [],
           customExpenseCategories: [],
+          pushNotificationPreferences: {
+            postLike: 'off',
+            postComment: 'off',
+            commentLike: 'off',
+            tripJoinRequest: 'off',
+            friendRequest: false,
+            tripPublished: 'off'
+          },
           isTrajectoryPublic: false
         });
         tombstoneWritten = true;
