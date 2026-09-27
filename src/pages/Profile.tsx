@@ -233,7 +233,7 @@ export const ProfilePage: React.FC<{
   }, [effectiveUserId]);
 
   const isPassportExpired = Boolean(
-    profile?.isDeleted || (!profileLoading && !profile && !effectiveUserId)
+    profile?.isDeleted || (!profileLoading && !profile && !!effectiveUserId)
   );
 
   // Bidirectional Block State
@@ -1885,7 +1885,7 @@ export const ProfilePage: React.FC<{
                 </h3>
                 <div className="p-3.5 bg-red-50/70 rounded-2xl border border-red-100/80 text-left">
                   <p className="text-xs text-red-700 leading-relaxed font-Semibold">
-                    註銷後，這支 SyncTime 帳號會永久失效並停止使用。公開旅程、旅吧貼文與個人足跡等帳號內容會被清除；既有聊天室中的歷史訊息會保留，但其他人點進你的舊帳號時只會看到「該護照已被銷毀」。日後仍可使用同一個 Google 或 Apple 帳號重新註冊，但會建立全新的 SyncTime 帳號，舊帳號的好友、內容與資料不會恢復。
+                    註銷後，這支 SyncTime 帳號會永久失效，個人護照、姓名、頭像、Email、好友、收藏、旅遊足跡、通知與偏好設定等帳號資料會被刪除。你過去已發布的旅程、旅吧貼文、留言、評價與聊天室歷史會保留，但作者會顯示為「已註銷帳號」，其他人也無法再查看你的舊個人資料。日後仍可使用同一個 Google 或 Apple 帳號重新登入；系統會建立全新的 SyncTime 帳號與新的 UID，舊帳號資料不會恢復。
                   </p>
                 </div>
               </div>
@@ -1914,6 +1914,8 @@ export const ProfilePage: React.FC<{
                         setDeleteAccountError('為了保障帳號安全，請完成 Google／Apple 身分驗證後再註銷。');
                       } else if (err.message === 'REAUTH_CANCELLED') {
                         setDeleteAccountError('你已取消身分驗證，因此帳號尚未註銷。');
+                      } else if (err.message === 'ACCOUNT_DISABLED_PENDING_AUTH_DELETE') {
+                        setDeleteAccountError('帳號資料已進入刪除狀態並停止使用。請重新以原本的 Google／Apple 帳號登入一次，系統會完成舊登入身分的清除；之後再次登入就會建立全新帳號。');
                       } else {
                         setDeleteAccountError(`註銷失敗：${err.message || '請稍後再試'}`);
                       }
