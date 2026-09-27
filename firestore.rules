@@ -71,6 +71,7 @@ service cloud.firestore {
         'bio',
         'interestTags',
         'customExpenseCategories',
+        'pushNotificationPreferences',
         'isDeleted',
         'deletedAt'
       ])
@@ -139,6 +140,31 @@ service cloud.firestore {
             && data.get('residence', '') is string && data.get('residence', '').size() < 200
             && data.get('visitedCities', 0) is number
             && data.get('bio', '') is string && data.get('bio', '').size() <= 2000
+            && (
+              !('pushNotificationPreferences' in data)
+              ||
+              (
+                data.pushNotificationPreferences is map
+                && data.pushNotificationPreferences.keys().hasOnly([
+                  'postLike',
+                  'postComment',
+                  'commentLike',
+                  'tripJoinRequest',
+                  'friendRequest',
+                  'tripPublished'
+                ])
+                && data.pushNotificationPreferences.get('postLike', 'all') in ['all', 'friends', 'non_friends', 'off']
+                && data.pushNotificationPreferences.get('postComment', 'all') in ['all', 'friends', 'non_friends', 'off']
+                && data.pushNotificationPreferences.get('commentLike', 'all') in ['all', 'friends', 'non_friends', 'off']
+                && data.pushNotificationPreferences.get('tripJoinRequest', 'all') in ['all', 'friends', 'non_friends', 'off']
+                && (
+                  data.pushNotificationPreferences.get('friendRequest', true) == true
+                  ||
+                  data.pushNotificationPreferences.get('friendRequest', true) == false
+                )
+                && data.pushNotificationPreferences.get('tripPublished', 'friends') in ['all', 'friends', 'non_friends', 'off']
+              )
+            )
             && (data.get('isTrajectoryPublic', true) == true || data.get('isTrajectoryPublic', true) == false)
             && (data.get('isDeleted', false) == true || data.get('isDeleted', false) == false);
       }
