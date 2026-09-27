@@ -62,7 +62,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
             setLoading(false);
           } else {
-            // Initialize profile if it doesn't exist
+            // A deleted UID must never be silently recreated. The same
+            // Google/Apple identity may sign up again later, but Firebase Auth
+            // will then create a NEW UID with no deletion marker.
+            const deletionMarker = await getDoc(
+              doc(db, 'deletedUsers', user.uid)
+            );
+
+            if (deletionMarker.exists()) {
+              setUser(null);
+              setProfile(null);
+              setBlockedByUsers([]);
+              setLoading(false);
+              return;
+            }
+
+            // Initialize a brand-new profile only for a UID that has never
+            // completed account deletion.
             const newProfile: UserProfile = {
               uid: user.uid,
               displayName: user.displayName || '新用戶',
@@ -118,17 +134,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const finalizeLegacyDeletedAuthIfNeeded = async (signedInUser: User) => {
-    const profileSnap = await getDoc(doc(db, 'users', signedInUser.uid));
+    const userRef = doc(db, 'users', signedInUser.uid);
+    const deletedRef = doc(db, 'deletedUsers', signedInUser.uid);
 
-    if (!profileSnap.exists() || profileSnap.data()?.isDeleted !== true) {
+    const [profileSnap, deletedSnap] = await Promise.all([
+      getDoc(userRef),
+      getDoc(deletedRef)
+    ]);
+
+    const isLegacyTombstone =
+      profileSnap.exists() && profileSnap.data()?.isDeleted === true;
+
+    if (!isLegacyTombstone && !deletedSnap.exists()) {
       return false;
     }
 
-    // Migration path for accounts that were tombstoned by the old flow but
-    // whose Firebase Auth identity was never actually deleted.
-    // Because this runs immediately after a fresh provider sign-in, deleteUser
-    // satisfies Firebase's recent-login requirement.
+    // Migrate an old tombstone into the new fully-deleted profile model.
+    // The marker contains no email/name/avatar; it only prevents the OLD UID
+    // from ever being recreated if Auth cleanup was interrupted.
+    if (!deletedSnap.exists()) {
+      await setDoc(deletedRef, {
+        uid: signedInUser.uid,
+        status: 'deleted',
+        deletedAt: serverTimestamp()
+      });
+    }
+
+    if (profileSnap.exists()) {
+      await deleteDoc(userRef);
+    }
+
+    // This function runs immediately after a fresh provider sign-in, so
+    // Firebase's recent-login requirement is satisfied.
     await deleteUser(signedInUser);
+
     setUser(null);
     setProfile(null);
     setBlockedByUsers([]);
@@ -136,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthModal({
       isOpen: true,
       title: '舊帳號已完成註銷',
-      message: '這支舊帳號已正式銷毀。若要重新使用 SyncTime，請再使用同一個登入方式登入一次；系統會建立一支全新的帳號，舊資料不會恢復。',
+      message: '這支舊帳號已正式刪除。若要重新使用 SyncTime，請再使用同一個 Google／Apple 帳號登入一次；系統會以新的 UID 建立全新帳號，舊帳號資料不會恢復。',
       actionType: 'dismiss',
     });
 
@@ -354,110 +393,203 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
 
     const uid = currentUser.uid;
-    let tombstoneWritten = false;
+    let deletionMarkerWritten = false;
+
+    const deleteDocsFromQuery = async (q: any) => {
+      const snap = await getDocs(q);
+      for (const item of snap.docs) {
+        await deleteDoc(item.ref);
+      }
+    };
 
     try {
-      // IMPORTANT: verify identity before changing any Firestore data.
-      // This prevents the old bug where the profile was marked deleted even
-      // when Firebase Auth later rejected deleteUser() for stale authentication.
+      // 1. Verify identity before changing account data.
       await reauthenticateForDeletion(currentUser);
 
       const userRef = doc(db, 'users', uid);
+      const deletedRef = doc(db, 'deletedUsers', uid);
       const userSnap = await getDoc(userRef);
-      const userData = userSnap.exists() ? (userSnap.data() as UserProfile) : null;
-      const oldUsername = String(userData?.username || '').trim().toLowerCase();
+      const userData = userSnap.exists()
+        ? (userSnap.data() as UserProfile)
+        : null;
 
-      // Release the public SyncTime ID so a future account may use it.
+      const oldUsername = String(userData?.username || '')
+        .trim()
+        .toLowerCase();
+
+      // 2. Release the public SyncTime ID.
       if (oldUsername) {
         const usernameRef = doc(db, 'usernames', oldUsername);
         const usernameSnap = await getDoc(usernameRef);
-        if (usernameSnap.exists() && usernameSnap.data()?.uid === uid) {
+
+        if (
+          usernameSnap.exists() &&
+          usernameSnap.data()?.uid === uid
+        ) {
           await deleteDoc(usernameRef);
         }
       }
 
-      // Remove the deleted account from both sides of current friendships.
-      for (const friendUid of userData?.friends || []) {
-        await updateDoc(doc(db, 'users', friendUid), {
+      // 3. Remove this UID from friendship relationships.
+      const friendProfiles = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('friends', 'array-contains', uid)
+        )
+      );
+
+      for (const friendDoc of friendProfiles.docs) {
+        await updateDoc(friendDoc.ref, {
           friends: arrayRemove(uid)
         }).catch(() => {});
       }
 
-      const deleteDocsFromQuery = async (q: any) => {
-        const snap = await getDocs(q);
-        for (const item of snap.docs) {
-          await deleteDoc(item.ref);
-        }
-      };
+      // 4. Remove this account from trips it joined, while KEEPING every
+      // published trip itself. Trips authored by this UID also remain public.
+      const joinedTrips = await getDocs(
+        query(
+          collection(db, 'trips'),
+          where('members', 'array-contains', uid)
+        )
+      );
 
-      // Remove user-owned public/private content.
-      await deleteDocsFromQuery(
-        query(collection(db, 'trips'), where('authorId', '==', uid))
-      );
-      await deleteDocsFromQuery(
-        query(collection(db, 'barPosts'), where('authorId', '==', uid))
-      );
+      for (const tripDoc of joinedTrips.docs) {
+        await updateDoc(tripDoc.ref, {
+          members: arrayRemove(uid)
+        }).catch(() => {});
+      }
+
+      // 5. Delete private/account-only data.
       await deleteDocsFromQuery(
         query(collection(db, 'stays'), where('userId', '==', uid))
       );
 
-      // Remove personal saved data.
-      await deleteDocsFromQuery(collection(db, 'users', uid, 'savedTrips'));
-      await deleteDocsFromQuery(collection(db, 'users', uid, 'savedPosts'));
-
-      // Remove pending/history records that belong to this account.
       await deleteDocsFromQuery(
-        query(collection(db, 'friendRequests'), where('senderId', '==', uid))
+        collection(db, 'users', uid, 'savedTrips')
       );
       await deleteDocsFromQuery(
-        query(collection(db, 'friendRequests'), where('receiverId', '==', uid))
-      );
-      await deleteDocsFromQuery(
-        query(collection(db, 'notifications'), where('fromId', '==', uid))
-      );
-      await deleteDocsFromQuery(
-        query(collection(db, 'notifications'), where('toId', '==', uid))
+        collection(db, 'users', uid, 'savedPosts')
       );
 
-      // Keep this one tombstone document intentionally.
-      // Old chat messages still point to the old UID, so opening the old
-      // profile can continue to show "該護照已被銷毀".
-      if (userSnap.exists()) {
-        await updateDoc(userRef, {
-          isDeleted: true,
-          deletedAt: serverTimestamp(),
-          displayName: '-',
-          username: '',
-          usernameCustomized: false,
-          email: '',
-          avatarUrl: '',
-          nationality: '-',
-          birthday: '',
-          gender: 'O',
-          residence: '-',
-          visitedCities: 0,
-          bio: '',
-          friends: [],
-          blockedUsers: [],
-          hiddenItems: [],
-          interestTags: [],
-          customExpenseCategories: [],
-          pushNotificationPreferences: {
-            postLike: 'off',
-            postComment: 'off',
-            commentLike: 'off',
-            tripJoinRequest: 'off',
-            friendRequest: false,
-            tripPublished: 'off'
-          },
-          isTrajectoryPublic: false
-        });
-        tombstoneWritten = true;
+      await deleteDocsFromQuery(
+        query(
+          collection(db, 'friendRequests'),
+          where('senderId', '==', uid)
+        )
+      );
+      await deleteDocsFromQuery(
+        query(
+          collection(db, 'friendRequests'),
+          where('receiverId', '==', uid)
+        )
+      );
+
+      await deleteDocsFromQuery(
+        query(
+          collection(db, 'notifications'),
+          where('fromId', '==', uid)
+        )
+      );
+      await deleteDocsFromQuery(
+        query(
+          collection(db, 'notifications'),
+          where('toId', '==', uid)
+        )
+      );
+
+      // 6. Keep published reviews, but remove the deleted account's snapshot
+      // identity from those reviews.
+      const authoredReviews = await getDocs(
+        query(
+          collection(db, 'userReviews'),
+          where('reviewerId', '==', uid)
+        )
+      );
+
+      for (const reviewDoc of authoredReviews.docs) {
+        await updateDoc(reviewDoc.ref, {
+          reviewerName: '已註銷帳號',
+          reviewerAvatar: ''
+        }).catch(() => {});
       }
 
-      // Delete the Firebase Authentication identity itself.
-      // Signing in later with the same Google/Apple account creates a fresh
-      // Firebase account instead of reviving this old UID/profile.
+      // 7. Remove like-state that belongs only to the account, while
+      // preserving the actual posts/comments.
+      const allBarPosts = await getDocs(collection(db, 'barPosts'));
+      for (const postDoc of allBarPosts.docs) {
+        await deleteDoc(
+          doc(db, 'barPosts', postDoc.id, 'likes', uid)
+        ).catch(() => {});
+      }
+
+      const allTrips = await getDocs(collection(db, 'trips'));
+      for (const tripDoc of allTrips.docs) {
+        const comments = await getDocs(
+          collection(db, 'trips', tripDoc.id, 'comments')
+        );
+
+        for (const commentDoc of comments.docs) {
+          await deleteDoc(
+            doc(
+              db,
+              'trips',
+              tripDoc.id,
+              'comments',
+              commentDoc.id,
+              'likes',
+              uid
+            )
+          ).catch(() => {});
+        }
+      }
+
+      // 8. Preserve chat rooms/messages for the other participants, but clear
+      // this account's personal unread state.
+      const chatRooms = await getDocs(
+        query(
+          collection(db, 'chatRooms'),
+          where('participants', 'array-contains', uid)
+        )
+      );
+
+      for (const roomDoc of chatRooms.docs) {
+        const roomData = roomDoc.data();
+        const unreadCounts = {
+          ...(roomData.unreadCounts || {})
+        };
+        delete unreadCounts[uid];
+
+        await updateDoc(roomDoc.ref, {
+          unreadBy: arrayRemove(uid),
+          unreadCounts
+        }).catch(() => {});
+      }
+
+      // IMPORTANT:
+      // We intentionally DO NOT delete published trips, bar posts, comments,
+      // replies, reviews, or chat messages. Their authorId/senderId keeps the
+      // old UID, so history remains stable. UI resolves the missing user
+      // profile as "已註銷帳號".
+
+      // 9. Write a minimal, non-PII deletion marker BEFORE deleting the
+      // profile. If Auth deletion is interrupted, the old UID can never be
+      // silently recreated.
+      await setDoc(deletedRef, {
+        uid,
+        status: 'deleted',
+        deletedAt: serverTimestamp()
+      });
+      deletionMarkerWritten = true;
+
+      // 10. Delete the user profile document itself. No email, name, avatar,
+      // passport fields, preferences, friends, etc. remain in users/{uid}.
+      if (userSnap.exists()) {
+        await deleteDoc(userRef);
+      }
+
+      // 11. Delete the Firebase Authentication identity.
+      // Signing in later with the same Google/Apple account creates a NEW UID
+      // and therefore a completely new SyncTime account.
       await deleteUser(currentUser);
 
       setUser(null);
@@ -469,6 +601,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error.code === 'auth/requires-recent-login') {
         throw new Error('REQUIRES_RECENT_LOGIN');
       }
+
       if (
         error.code === 'auth/popup-closed-by-user' ||
         error.code === 'auth/cancelled-popup-request'
@@ -476,10 +609,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('REAUTH_CANCELLED');
       }
 
-      if (tombstoneWritten) {
-        // A tombstoned account must never continue operating as an active account.
-        // Security rules also block writes for deleted users.
-        setProfile(prev => prev ? { ...prev, isDeleted: true } : prev);
+      if (deletionMarkerWritten) {
+        // The account has already crossed the deletion boundary. Keep the UI
+        // logged out; Firestore rules also reject all writes from this old UID.
+        setUser(null);
+        setProfile(null);
+        setBlockedByUsers([]);
+        throw new Error('ACCOUNT_DISABLED_PENDING_AUTH_DELETE');
       }
 
       throw error;
