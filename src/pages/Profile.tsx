@@ -44,6 +44,7 @@ import { UserTagsSelectModal } from '../components/UserTagsSelectModal';
 import { getTagItem, DEFAULT_USER_TAGS } from '../data/userInterestTags';
 import { AppAIAssistantModal } from '../components/AppAIAssistantModal';
 import { UsernameSetupModal } from '../components/UsernameSetupModal';
+import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { getOrCreateChatRoom } from '../lib/chatUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -273,6 +274,7 @@ export const ProfilePage: React.FC<{
   const [showBlocklist, setShowBlocklist] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showUsernameEditModal, setShowUsernameEditModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -1823,7 +1825,14 @@ export const ProfilePage: React.FC<{
                   </div>
                   <span className="text-xs text-apple-gray-300">繁體中文</span>
                 </div>
-                <ProfileItem icon={Bell} label="通知設定" />
+                <ProfileItem
+                  icon={Bell}
+                  label="通知設定"
+                  onClick={() => {
+                    setShowNotificationSettings(true);
+                    setShowSettings(false);
+                  }}
+                />
                 <ProfileItem icon={Shield} label="隱私與封鎖名單" onClick={() => {
                   setShowBlocklist(true);
                   setShowSettings(false);
@@ -4226,6 +4235,13 @@ export const ProfilePage: React.FC<{
         targetId={reportModalConfig.targetId}
         targetTitle={reportModalConfig.targetTitle}
       />
+
+      {/* System Push Notification Settings */}
+      {showNotificationSettings && (
+        <NotificationSettingsModal
+          onClose={() => setShowNotificationSettings(false)}
+        />
+      )}
 
       {/* SyncTime AI Assistant Modal */}
       <AppAIAssistantModal
