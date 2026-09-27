@@ -262,8 +262,7 @@ export const NotificationSettingsModal: React.FC<
                 選擇你想收到的推播
               </h3>
               <p className="text-[11px] leading-relaxed text-[#4B6678] mt-1">
-                這裡控制的是未來顯示在 iPhone／Android 通知中心的系統推播，
-                不會刪除或隱藏 SyncTime App 內的通知紀錄。
+               你的選擇不會刪除或隱藏 SyncTime App 內的通知紀錄。
               </p>
             </div>
           </div>
@@ -324,8 +323,7 @@ export const NotificationSettingsModal: React.FC<
         </div>
 
         <p className="px-2 pt-4 text-[10px] text-apple-gray-400 leading-relaxed">
-          「好友」與「非好友」會依通知發生當下的好友關係判斷。之後接上手機推播時，
-          推播服務會直接讀取這組設定。
+          「好友」與「非好友」會依通知發生當下的好友關係判斷。
         </p>
       </div>
     </div>
