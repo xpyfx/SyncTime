@@ -7,6 +7,10 @@ type DeviceOrientationConstructor = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<'granted' | 'denied'>;
 };
 
+type DeviceMotionConstructor = typeof DeviceMotionEvent & {
+  requestPermission?: () => Promise<'granted' | 'denied'>;
+};
+
 const MOTION_PERMISSION_KEY = 'synctime-passport-motion-permission';
 
 export async function requestPassportMotionPermission(): Promise<boolean> {
@@ -15,9 +19,18 @@ export async function requestPassportMotionPermission(): Promise<boolean> {
   const OrientationEvent = (window as any)
     .DeviceOrientationEvent as DeviceOrientationConstructor | undefined;
 
-  if (!OrientationEvent) return false;
+  const MotionEvent = (window as any)
+    .DeviceMotionEvent as DeviceMotionConstructor | undefined;
 
-  if (typeof OrientationEvent.requestPermission !== 'function') {
+  const orientationNeedsPermission =
+    OrientationEvent &&
+    typeof OrientationEvent.requestPermission === 'function';
+
+  const motionNeedsPermission =
+    MotionEvent &&
+    typeof MotionEvent.requestPermission === 'function';
+
+  if (!orientationNeedsPermission && !motionNeedsPermission) {
     window.dispatchEvent(new Event('synctime-passport-motion-enabled'));
     return true;
   }
@@ -32,10 +45,25 @@ export async function requestPassportMotionPermission(): Promise<boolean> {
 
     if (cached === 'denied') return false;
 
-    const permission = await OrientationEvent.requestPermission();
-    window.sessionStorage.setItem(MOTION_PERMISSION_KEY, permission);
+    const results = await Promise.allSettled([
+      orientationNeedsPermission
+        ? OrientationEvent!.requestPermission!()
+        : Promise.resolve<'granted'>('granted'),
+      motionNeedsPermission
+        ? MotionEvent!.requestPermission!()
+        : Promise.resolve<'granted'>('granted')
+    ]);
 
-    if (permission === 'granted') {
+    const granted = results.some(
+      result => result.status === 'fulfilled' && result.value === 'granted'
+    );
+
+    window.sessionStorage.setItem(
+      MOTION_PERMISSION_KEY,
+      granted ? 'granted' : 'denied'
+    );
+
+    if (granted) {
       window.dispatchEvent(new Event('synctime-passport-motion-enabled'));
       return true;
     }
@@ -57,7 +85,12 @@ export const PassportSecurityWatermark: React.FC = () => {
   const [sensorActive, setSensorActive] = useState(false);
 
   const sensorActiveRef = useRef(false);
-  const baseOrientationRef = useRef<{
+  const motionBaseRef = useRef<{
+    x: number;
+    y: number;
+    z: number;
+  } | null>(null);
+  const orientationBaseRef = useRef<{
     beta: number;
     gamma: number;
   } | null>(null);
@@ -65,73 +98,123 @@ export const PassportSecurityWatermark: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    let motionAttached = false;
     let orientationAttached = false;
 
-    const resetOrientationBase = () => {
-      baseOrientationRef.current = null;
-    };
-
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      if (event.gamma == null || event.beta == null) return;
-
-      if (!baseOrientationRef.current) {
-        baseOrientationRef.current = {
-          gamma: event.gamma,
-          beta: event.beta
-        };
-      }
-
-      const deltaGamma = clamp(
-        event.gamma - baseOrientationRef.current.gamma,
-        -32,
-        32
-      );
-      const deltaBeta = clamp(
-        event.beta - baseOrientationRef.current.beta,
-        -32,
-        32
-      );
-
-      const nextLightX = 50 + (deltaGamma / 32) * 46;
-      const nextLightY = 50 + (deltaBeta / 32) * 46;
-
-      setLightX(nextLightX);
-      setLightY(nextLightY);
-      setTiltX(deltaGamma);
-      setTiltY(deltaBeta);
-
+    const markSensorActive = () => {
       if (!sensorActiveRef.current) {
         sensorActiveRef.current = true;
         setSensorActive(true);
       }
     };
 
-    const attachOrientation = () => {
-      if (orientationAttached) return;
+    const resetSensorBases = () => {
+      motionBaseRef.current = null;
+      orientationBaseRef.current = null;
+    };
 
-      baseOrientationRef.current = null;
-      window.addEventListener('deviceorientation', handleOrientation, true);
-      window.addEventListener('orientationchange', resetOrientationBase);
-      orientationAttached = true;
+    // Primary path on iPhone: accelerationIncludingGravity changes reliably
+    // when the physical phone is tilted. We calibrate the user's current
+    // holding angle as neutral, then move the sheen from the delta.
+    const handleMotion = (event: DeviceMotionEvent) => {
+      const acceleration = event.accelerationIncludingGravity;
+
+      if (
+        acceleration?.x == null ||
+        acceleration?.y == null ||
+        acceleration?.z == null
+      ) {
+        return;
+      }
+
+      const current = {
+        x: acceleration.x,
+        y: acceleration.y,
+        z: acceleration.z
+      };
+
+      if (!motionBaseRef.current) {
+        motionBaseRef.current = current;
+        return;
+      }
+
+      const base = motionBaseRef.current;
+
+      const dx = clamp(current.x - base.x, -6, 6);
+      const dy = clamp(current.y - base.y, -6, 6);
+      const dz = clamp(current.z - base.z, -6, 6);
+
+      // Horizontal tilt mainly follows X. Vertical tilt uses both Y and Z so
+      // a forward/backward wrist movement is visually obvious.
+      const horizontal = clamp(dx * 5.8, -32, 32);
+      const vertical = clamp((-dy + dz * 0.72) * 5.2, -32, 32);
+
+      setTiltX(horizontal);
+      setTiltY(vertical);
+      setLightX(clamp(50 + horizontal * 1.38, 5, 95));
+      setLightY(clamp(50 + vertical * 1.38, 5, 95));
+
+      markSensorActive();
+    };
+
+    // Fallback for browsers/devices where orientation data is available.
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      if (sensorActiveRef.current) return;
+      if (event.gamma == null || event.beta == null) return;
+
+      if (!orientationBaseRef.current) {
+        orientationBaseRef.current = {
+          gamma: event.gamma,
+          beta: event.beta
+        };
+        return;
+      }
+
+      const base = orientationBaseRef.current;
+
+      const horizontal = clamp((event.gamma - base.gamma) * 1.45, -32, 32);
+      const vertical = clamp((event.beta - base.beta) * 1.25, -32, 32);
+
+      setTiltX(horizontal);
+      setTiltY(vertical);
+      setLightX(clamp(50 + horizontal * 1.38, 5, 95));
+      setLightY(clamp(50 + vertical * 1.38, 5, 95));
+
+      markSensorActive();
+    };
+
+    const attachSensors = () => {
+      resetSensorBases();
+
+      if (!motionAttached) {
+        window.addEventListener('devicemotion', handleMotion, true);
+        motionAttached = true;
+      }
+
+      if (!orientationAttached) {
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        orientationAttached = true;
+      }
     };
 
     const OrientationEvent = (window as any)
       .DeviceOrientationEvent as DeviceOrientationConstructor | undefined;
 
-    // Android and browsers that do not require an explicit permission prompt.
-    if (
-      OrientationEvent &&
-      typeof OrientationEvent.requestPermission !== 'function'
-    ) {
-      attachOrientation();
+    const MotionEvent = (window as any)
+      .DeviceMotionEvent as DeviceMotionConstructor | undefined;
+
+    const requiresExplicitPermission =
+      (OrientationEvent &&
+        typeof OrientationEvent.requestPermission === 'function') ||
+      (MotionEvent && typeof MotionEvent.requestPermission === 'function');
+
+    if (!requiresExplicitPermission) {
+      attachSensors();
     }
 
-    // iOS: this event is dispatched after a user taps the passport and grants
-    // Motion & Orientation access.
-    const handleMotionEnabled = () => attachOrientation();
+    const handleMotionEnabled = () => attachSensors();
 
-    // Desktop preview only: use the pointer as a physical-card tilt simulator.
-    // Touch devices do not use this fallback, so the sheen never moves by itself.
+    // Desktop preview only: mouse movement simulates physical tilt.
     const hasFinePointer =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: fine)').matches;
@@ -152,14 +235,16 @@ export const PassportSecurityWatermark: React.FC = () => {
 
       setLightX(nextX);
       setLightY(nextY);
-      setTiltX(((nextX - 50) / 50) * 24);
-      setTiltY(((nextY - 50) / 50) * 24);
+      setTiltX(((nextX - 50) / 50) * 28);
+      setTiltY(((nextY - 50) / 50) * 28);
     };
 
     window.addEventListener(
       'synctime-passport-motion-enabled',
       handleMotionEnabled
     );
+
+    window.addEventListener('orientationchange', resetSensorBases);
 
     if (hasFinePointer) {
       window.addEventListener('pointermove', handlePointerMove, {
@@ -168,15 +253,15 @@ export const PassportSecurityWatermark: React.FC = () => {
     }
 
     return () => {
+      if (motionAttached) {
+        window.removeEventListener('devicemotion', handleMotion, true);
+      }
+
       if (orientationAttached) {
         window.removeEventListener(
           'deviceorientation',
           handleOrientation,
           true
-        );
-        window.removeEventListener(
-          'orientationchange',
-          resetOrientationBase
         );
       }
 
@@ -184,6 +269,7 @@ export const PassportSecurityWatermark: React.FC = () => {
         'synctime-passport-motion-enabled',
         handleMotionEnabled
       );
+      window.removeEventListener('orientationchange', resetSensorBases);
 
       if (hasFinePointer) {
         window.removeEventListener('pointermove', handlePointerMove);
@@ -196,57 +282,55 @@ export const PassportSecurityWatermark: React.FC = () => {
     Math.sqrt(tiltX * tiltX + tiltY * tiltY) / 32
   );
 
-  const watermarkX = tiltX * 0.055;
-  const watermarkY = tiltY * 0.04;
-  const watermarkRotation = tiltX * 0.02;
+  const watermarkX = tiltX * 0.04;
+  const watermarkY = tiltY * 0.03;
+  const watermarkRotation = tiltX * 0.015;
 
-  const sheenX = (lightX - 50) * 0.46;
-  const sheenY = (lightY - 50) * 0.34;
-  const sheenRotation = -7 + tiltX * 0.22;
+  const sheenX = (lightX - 50) * 0.52;
+  const sheenY = (lightY - 50) * 0.38;
+  const sheenRotation = -8 + tiltX * 0.24;
 
   const sheenOpacity = sensorActive
-    ? 0.16 + tiltMagnitude * 0.58
-    : 0.07;
+    ? 0.2 + tiltMagnitude * 0.62
+    : 0.05;
 
   const radialOpacity = sensorActive
-    ? 0.1 + tiltMagnitude * 0.44
-    : 0.05;
+    ? 0.12 + tiltMagnitude * 0.48
+    : 0.04;
 
   return (
     <div
       className="absolute inset-0 z-[8] overflow-hidden rounded-[inherit] pointer-events-none"
       aria-hidden="true"
     >
-      {/* Security mark: intentionally lives in the lower-right quadrant so it
-          does not compete with the portrait photo. */}
+      {/* Cropped artwork positioned in the true lower-right quadrant. */}
       <motion.img
         src={PASSPORT_WATERMARK_SRC}
         alt=""
         draggable={false}
-        className="absolute right-[4%] bottom-[13%] w-[41%] max-w-none select-none"
+        className="absolute right-[2.5%] bottom-[12.5%] w-[61%] max-w-none select-none"
         animate={{
           x: watermarkX,
           y: watermarkY,
           rotate: watermarkRotation,
-          opacity: sensorActive ? 0.115 + tiltMagnitude * 0.025 : 0.105
+          opacity: sensorActive ? 0.145 + tiltMagnitude * 0.035 : 0.135
         }}
         transition={{
           type: 'spring',
-          stiffness: 250,
-          damping: 30,
-          mass: 0.18
+          stiffness: 270,
+          damping: 31,
+          mass: 0.16
         }}
         style={{
           mixBlendMode: 'multiply',
           filter:
-            'saturate(0.72) contrast(0.9) drop-shadow(0 0 5px rgba(255,255,255,0.16))'
+            'saturate(0.72) contrast(0.92) drop-shadow(0 0 4px rgba(255,255,255,0.12))'
         }}
       />
 
-      {/* Specular holographic band. There is NO idle animation: its position is
-          driven only by device orientation (or mouse in desktop preview). */}
+      {/* No idle animation. This band only moves when the phone physically tilts. */}
       <motion.div
-        className="absolute -inset-[48%]"
+        className="absolute -inset-[50%]"
         animate={{
           x: sheenX + '%',
           y: sheenY + '%',
@@ -255,19 +339,18 @@ export const PassportSecurityWatermark: React.FC = () => {
         }}
         transition={{
           type: 'spring',
-          stiffness: 235,
-          damping: 28,
-          mass: 0.2
+          stiffness: 260,
+          damping: 30,
+          mass: 0.17
         }}
         style={{
           background:
-            'linear-gradient(108deg, transparent 36%, rgba(182,202,218,0.025) 41%, rgba(255,255,255,0.62) 49%, rgba(121,198,255,0.15) 54%, rgba(3,80,150,0.055) 59%, transparent 67%)',
+            'linear-gradient(108deg, transparent 36%, rgba(182,202,218,0.02) 41%, rgba(255,255,255,0.68) 49%, rgba(121,198,255,0.18) 54%, rgba(3,80,150,0.06) 59%, transparent 67%)',
           mixBlendMode: 'screen',
           willChange: 'transform, opacity'
         }}
       />
 
-      {/* Small moving hotspot that makes the laminate feel three-dimensional. */}
       <div
         className="absolute inset-0"
         style={{
@@ -276,20 +359,19 @@ export const PassportSecurityWatermark: React.FC = () => {
             lightX +
             '% ' +
             lightY +
-            '%, rgba(255,255,255,0.48) 0%, rgba(182,202,218,0.11) 15%, rgba(3,80,150,0.028) 31%, transparent 52%)',
+            '%, rgba(255,255,255,0.5) 0%, rgba(182,202,218,0.13) 15%, rgba(3,80,150,0.03) 31%, transparent 52%)',
           mixBlendMode: 'screen',
           opacity: radialOpacity,
-          transition: 'opacity 120ms linear',
+          transition: 'opacity 100ms linear',
           willChange: 'background, opacity'
         }}
       />
 
-      {/* Fine static security lines. These never move. */}
       <div
-        className="absolute inset-0 opacity-[0.055]"
+        className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
-            'repeating-linear-gradient(128deg, transparent 0px, transparent 7px, rgba(3,80,150,0.18) 8px, transparent 9px)',
+            'repeating-linear-gradient(128deg, transparent 0px, transparent 7px, rgba(3,80,150,0.16) 8px, transparent 9px)',
           mixBlendMode: 'multiply'
         }}
       />
