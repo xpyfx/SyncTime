@@ -38,6 +38,17 @@
       },
       "required": ["displayName", "username"]
     },
+    "DeletedUser": {
+      "title": "Deleted User Marker",
+      "description": "Minimal non-PII marker for an old Firebase UID that has completed SyncTime account deletion",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "status": { "type": "string", "enum": ["deleted"] },
+        "deletedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "status", "deletedAt"]
+    },
     "UserReview": {
       "title": "User Review / Evaluation",
       "description": "Reviews left by other users regarding a travel partner",
@@ -185,6 +196,10 @@
     }
   },
   "firestore": {
+    "/deletedUsers/{uid}": {
+      "schema": "DeletedUser",
+      "description": "Non-PII deletion marker preventing an old UID from being recreated"
+    },
     "/reports/{reportId}": {
       "schema": "Report",
       "description": "User submitted reports"
