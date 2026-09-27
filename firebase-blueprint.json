@@ -18,6 +18,18 @@
         "visitedCities": { "type": "number", "description": "Number of unique countries/cities visited" },
         "blockedUsers": { "type": "array", "items": { "type": "string" } },
         "friends": { "type": "array", "items": { "type": "string" } },
+        "pushNotificationPreferences": {
+          "type": "object",
+          "description": "System push notification preferences",
+          "properties": {
+            "postLike": { "type": "string", "enum": ["all", "friends", "non_friends", "off"] },
+            "postComment": { "type": "string", "enum": ["all", "friends", "non_friends", "off"] },
+            "commentLike": { "type": "string", "enum": ["all", "friends", "non_friends", "off"] },
+            "tripJoinRequest": { "type": "string", "enum": ["all", "friends", "non_friends", "off"] },
+            "friendRequest": { "type": "boolean" },
+            "tripPublished": { "type": "string", "enum": ["all", "friends", "non_friends", "off"] }
+          }
+        },
         "isTrajectoryPublic": { "type": "boolean", "description": "Whether user's travel trajectory is visible to others" },
         "bio": { "type": "string", "description": "Self introduction bio of the user" },
         "isDeleted": { "type": "boolean", "description": "Whether this user passport/account is canceled" },
