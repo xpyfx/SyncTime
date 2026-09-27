@@ -1,0 +1,399 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Fredoka", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  
+  /* Primary Dark / Text color from user image */
+  --color-apple-blue: #2A2B2A;
+  --color-brand-black: #2A2B2A;
+  
+  /* Highlight Light Blue from user image */
+  --color-highlight-blue: #E6F5FF;
+  --color-blue-50: #E6F5FF;
+  --color-blue-100: #CCE8FF;
+  --color-blue-500: #2A2B2A;
+  --color-blue-600: #2A2B2A;
+  
+  /* Background Canvas White & Neutrals derived from #2A2B2A & #E6F5FF */
+  --color-apple-gray-50: #FFFFFF;
+  --color-apple-gray-100: #E6F5FF;
+  --color-apple-gray-200: #CCE8FF;
+  --color-apple-gray-300: #757875;
+  --color-apple-gray-400: #4B4E4B;
+  --color-apple-gray-500: #363836;
+  --color-apple-gray-600: #2A2B2A;
+  --color-apple-gray-700: #202120;
+  --color-apple-gray-800: #181818;
+  --color-apple-gray-900: #101010;
+
+  --shadow-apple-sm: 0 4px 12px rgba(42, 43, 42, 0.05);
+  --shadow-apple-md: 0 8px 24px rgba(42, 43, 42, 0.1);
+}
+
+:root {
+  font-family: "Fredoka", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-weight: 300;
+}
+
+body {
+  font-family: "Fredoka", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-weight: 300;
+  @apply font-sans bg-white text-[#2A2B2A] antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #FFFFFF;
+  color: #2A2B2A;
+  touch-action: manipulation;
+}
+
+/* Ensure headings and common elements inherit a lighter, cleaner Fredoka weight */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+}
+
+/* Ensure strong/bold text uses medium or regular instead of overly heavy weights */
+strong, b, .font-bold {
+  font-weight: 500 !important;
+}
+
+.font-semibold {
+  font-weight: 400 !important;
+}
+
+.font-medium {
+  font-weight: 350 !important;
+}
+
+.font-normal {
+  font-weight: 300 !important;
+}
+
+.font-light {
+  font-weight: 300 !important;
+}
+
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+/* Prevent iOS Safari / mobile auto-zooming on focus by forcing 16px min size on inputs */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+@media screen and (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+#root {
+  @apply bg-white min-h-screen text-[#2A2B2A];
+  background-color: #FFFFFF;
+  color: #2A2B2A;
+}
+
+/* iOS Safe Area & Standard Mobile Grid Margin Helpers (Infinum / 8pt Grid Spec) */
+.safe-header-pt {
+  padding-top: max(env(safe-area-inset-top, 0px), 48px);
+}
+
+.safe-modal-header {
+  padding-top: max(env(safe-area-inset-top, 0px), 48px);
+  padding-left: max(env(safe-area-inset-left, 0px), 20px);
+  padding-right: max(env(safe-area-inset-right, 0px), 20px);
+}
+
+.safe-content-pb {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+}
+
+.safe-screen-px {
+  padding-left: max(env(safe-area-inset-left, 0px), 20px);
+  padding-right: max(env(safe-area-inset-right, 0px), 20px);
+}
+
+/* Custom Highlight & Accent Utility Classes */
+.bg-highlight {
+  background-color: #E6F5FF;
+}
+
+.text-dark-main {
+  color: #2A2B2A;
+}
+
+.bg-dark-main {
+  background-color: #2A2B2A;
+}
+
+.border-highlight {
+  border-color: #CCE8FF;
+}
+
+/* Scrollbar hide for mobile feel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Refractive Liquid Glass ("折衝/流體玻璃") Effect Utilities */
+.glass-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.45) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 8px 24px 0 rgba(31, 38, 135, 0.12),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(255, 255, 255, 0.50) 100%);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 12px 32px -4px rgba(3, 80, 150, 0.08),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(182, 202, 218, 0.35);
+  border-radius: 1.25rem;
+}
+
+.liquid-glass-input {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.55) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    inset 0 1.5px 2px 0 rgba(0, 0, 0, 0.04),
+    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 16px 0 rgba(3, 80, 150, 0.04);
+  border-radius: 9999px;
+  color: #2B2B2B;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-textarea {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.55) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    inset 0 1.5px 2px 0 rgba(0, 0, 0, 0.04),
+    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 16px 0 rgba(3, 80, 150, 0.04);
+  border-radius: 0.875rem;
+  color: #2B2B2B;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-textarea:focus {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.75) 100%);
+  border-color: rgba(3, 80, 150, 0.5);
+  box-shadow: 
+    0 0 0 3px rgba(3, 80, 150, 0.15),
+    inset 0 1.5px 2.5px 0 rgba(255, 255, 255, 1);
+  outline: none;
+}
+
+.liquid-glass-input:focus, .liquid-glass-input:focus-within {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.75) 100%);
+  border-color: rgba(3, 80, 150, 0.5);
+  box-shadow: 
+    0 0 0 3px rgba(3, 80, 150, 0.15),
+    inset 0 1.5px 2.5px 0 rgba(255, 255, 255, 1);
+  outline: none;
+}
+
+.liquid-glass-btn-primary {
+  background: linear-gradient(180deg, #0462B7 0%, #035096 60%, #023D73 100%);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 8px 20px -2px rgba(3, 80, 150, 0.35),
+    inset 0 2px 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.2);
+  color: #FFFFFF;
+  border-radius: 9999px;
+  transition: all 0.25s ease;
+}
+
+/* Apple-style Crystal Bubble Send Button */
+.liquid-bubble-btn {
+  background: radial-gradient(circle at 50% 38%, #60cdfe 0%, #38bdf8 30%, #035096 82%, #023668 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 
+    0 6px 18px -2px rgba(3, 80, 150, 0.35),
+    0 2px 6px rgba(56, 189, 248, 0.25),
+    inset 0 2.5px 3px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -2.5px 3px 0 rgba(2, 54, 104, 0.5);
+  color: #FFFFFF;
+  border-radius: 9999px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.liquid-bubble-btn::before {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 15%;
+  right: 15%;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 9999px 9999px 50% 50%;
+  pointer-events: none;
+}
+
+.liquid-bubble-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 
+    0 10px 24px -2px rgba(3, 80, 150, 0.45),
+    0 3px 10px rgba(56, 189, 248, 0.35),
+    inset 0 2.5px 4px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2.5px 3px 0 rgba(2, 54, 104, 0.6);
+}
+
+.liquid-bubble-btn:active:not(:disabled) {
+  transform: scale(0.92);
+  box-shadow: 
+    0 2px 8px rgba(3, 80, 150, 0.25),
+    inset 0 1.5px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.liquid-glass-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 
+    0 12px 24px -2px rgba(3, 80, 150, 0.45),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.85);
+}
+
+.liquid-glass-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.liquid-glass-btn-secondary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.55) 100%);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 6px 16px rgba(3, 80, 150, 0.08),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95);
+  color: #035096;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.liquid-glass-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.98);
+  transform: scale(1.02);
+}
+
+.liquid-glass-btn-secondary:active {
+  transform: scale(0.97);
+}
+
+.liquid-glass-segmented {
+  background: rgba(182, 202, 218, 0.28);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 9999px;
+}
+
+.liquid-glass-segment-active {
+  background: linear-gradient(180deg, #0462B7 0%, #035096 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    0 4px 12px rgba(3, 80, 150, 0.3),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.6);
+  color: #FFFFFF;
+  border-radius: 9999px;
+}
+
+.glass-input-wrapper:focus-within {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.60) 100%);
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 129, 209, 0.22),
+    inset 0 1.5px 3px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 1px 0 rgba(0, 129, 209, 0.15);
+}
+
+.glass-search-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.45) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
+  transition: all 0.2s ease;
+}
+
+.glass-send-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.80) 0%, rgba(255, 255, 255, 0.45) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, 0.90);
+  box-shadow: 
+    0 8px 24px 0 rgba(31, 38, 135, 0.15),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #2A2B2A;
+}
+
+.glass-send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.65) 100%);
+  box-shadow: 
+    0 10px 28px 0 rgba(0, 129, 209, 0.22),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 1);
+}
+
+.glass-send-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.glass-send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Leaflet Map Tile Rendering Fixes */
+.leaflet-tile {
+  outline: 1px solid transparent;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.leaflet-container {
+  transition: background-color 0.3s ease;
+}
+
+

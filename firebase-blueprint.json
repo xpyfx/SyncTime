@@ -1,0 +1,217 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information and settings",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "usernameCustomized": { "type": "boolean" },
+        "usernameChangedAt": { "type": "string", "format": "date-time" },
+        "email": { "type": "string", "format": "email" },
+        "avatarUrl": { "type": "string" },
+        "nationality": { "type": "string" },
+        "birthday": { "type": "string" },
+        "gender": { "type": "string", "enum": ["M", "F", "O"] },
+        "residence": { "type": "string" },
+        "visitedCities": { "type": "number", "description": "Number of unique countries/cities visited" },
+        "blockedUsers": { "type": "array", "items": { "type": "string" } },
+        "friends": { "type": "array", "items": { "type": "string" } },
+        "isTrajectoryPublic": { "type": "boolean", "description": "Whether user's travel trajectory is visible to others" },
+        "bio": { "type": "string", "description": "Self introduction bio of the user" },
+        "isDeleted": { "type": "boolean", "description": "Whether this user passport/account is canceled" },
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "username"]
+    },
+    "UserReview": {
+      "title": "User Review / Evaluation",
+      "description": "Reviews left by other users regarding a travel partner",
+      "type": "object",
+      "properties": {
+        "targetUserId": { "type": "string", "description": "User ID of the person being reviewed" },
+        "reviewerId": { "type": "string", "description": "User ID of the reviewer" },
+        "reviewerName": { "type": "string", "description": "Display name of the reviewer" },
+        "reviewerAvatar": { "type": "string", "description": "Avatar URL of the reviewer" },
+        "rating": { "type": "number", "description": "Star rating from 1 to 5" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Selected travel companion feedback tags" },
+        "content": { "type": "string", "description": "Detailed written feedback text" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetUserId", "reviewerId", "reviewerName", "rating", "content", "createdAt"]
+    },
+    "Trip": {
+      "title": "Travel Recruitment Post",
+      "description": "A post to find travel partners",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "country": { "type": "string" },
+        "cities": { "type": "array", "items": { "type": "string" } },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "isAdjustable": { "type": "boolean" },
+        "departureCountry": { "type": "string" },
+        "departureCity": { "type": "string" },
+        "totalPeople": { "type": "number" },
+        "recruitingCount": { "type": "number" },
+        "seekingGender": { "type": "string", "enum": ["男", "女", "男女"] },
+        "arrivalMethod": { "type": "string" },
+        "transportInfo": { "type": "string" },
+        "accommodationStatus": { "type": "string", "enum": ["已定", "待定"] },
+        "accommodationAddress": { "type": "string" },
+        "accommodationMapLink": { "type": "string" },
+        "notes": { "type": "string" },
+        "budgetLevel": { "type": "string", "enum": ["高價", "低價"] },
+        "status": { "type": "string", "enum": ["徵人中", "已滿員", "已取消"] },
+        "isFriendsOnly": { "type": "boolean" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "country", "cities", "startDate", "endDate"]
+    },
+    "Notification": {
+      "title": "Application Notification",
+      "description": "Notifications for join requests, approvals, and friend requests",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["friend_request", "trip_join_request", "trip_join_approved", "trip_join_rejected"] },
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "tripId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "read"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "fromId", "toId", "status", "createdAt"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request",
+      "description": "Request to connect between users",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "status", "createdAt"]
+    },
+    "BarPost": {
+      "title": "Travel Bar Post",
+      "description": "Social feed post for experiences, tips, warnings",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "content"]
+    },
+    "ChatRoom": {
+      "title": "Chat Room",
+      "description": "Private or group chat between users",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "type": { "type": "string", "enum": ["individual", "group"] },
+        "name": { "type": "string" },
+        "tripId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastUpdatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Individual messages in a chat room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "sharedPostId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    },
+    "Stay": {
+      "title": "Travel Stay Footprint",
+      "description": "Record of a user's stay in a country/city",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "country": { "type": "string" },
+        "city": { "type": "string" },
+        "remark": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "country", "city", "startDate", "endDate"]
+    },
+    "Report": {
+      "title": "User Report",
+      "description": "Violation and abuse reports submitted by users for profiles, passports, trips, and bar posts",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["user", "passport", "trip", "bar_post"] },
+        "targetId": { "type": "string" },
+        "targetTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "customCategoryReason": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetType", "targetId", "category"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "User submitted reports"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/stays/{stayId}": {
+      "schema": "Stay",
+      "description": "User travel footprints"
+    },
+    "/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Travel recruitment posts"
+    },
+    "/barPosts/{postId}": {
+      "schema": "BarPost",
+      "description": "Social travel experiences"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Friendship requests"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "General system and application notifications"
+    },
+    "/chatRooms/{roomId}": {
+      "schema": "ChatRoom",
+      "description": "Chat rooms"
+    },
+    "/chatRooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages in a chat room"
+    },
+    "/userReviews/{reviewId}": {
+      "schema": "UserReview",
+      "description": "Reviews left by other users regarding a travel partner"
+    }
+  }
+}

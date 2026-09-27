@@ -1,0 +1,367 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check / connection test rule
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Deleted/tombstoned accounts may still be readable by other users so old
+    // chats can show an expired passport, but they are never allowed to write.
+    function isActiveUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDeleted', false) == false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profile Rules
+    function ownsUsername(username) {
+      return existsAfter(
+        /databases/$(database)/documents/usernames/$(username)
+      )
+      && getAfter(
+        /databases/$(database)/documents/usernames/$(username)
+      ).data.uid == request.auth.uid;
+    }
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isSignedIn() && (
+  (
+    isOwner(userId) &&
+    resource.data.get('isDeleted', false) == false &&
+    isValidUser(request.resource.data) &&
+    request.resource.data.diff(resource.data)
+      .affectedKeys()
+      .hasOnly([
+        'displayName',
+        'avatarUrl',
+        'username',
+        'usernameCustomized',
+        'usernameChangedAt',
+        'email',
+        'blockedUsers',
+        'friends',
+        'nationality',
+        'birthday',
+        'gender',
+        'residence',
+        'visitedCities',
+        'hiddenItems',
+        'gestureSettings',
+        'isTrajectoryPublic',
+        'bio',
+        'interestTags',
+        'customExpenseCategories',
+        'isDeleted',
+        'deletedAt'
+      ])
+    &&
+    (
+      // Tombstoning is allowed to clear the public ID immediately.
+      request.resource.data.get('isDeleted', false) == true
+      ||
+      request.resource.data.get('username', '') ==
+        resource.data.get('username', '')
+      ||
+      (
+        ownsUsername(
+          request.resource.data.get('username', '')
+        )
+        &&
+        request.resource.data.get('usernameChangedAt', request.time) == request.time
+        &&
+        request.time >=
+          resource.data.get(
+            'usernameChangedAt',
+            request.time - duration.value(31, 'd')
+          ) + duration.value(30, 'd')
+      )
+    )
+  )
+  ||
+  (
+    isActiveUser() &&
+    request.resource.data
+      .diff(resource.data)
+      .affectedKeys()
+      .hasOnly(['friends'])
+  )
+);
+      // Preserve the tombstone document so historical chats keep a stable old UID.
+      allow delete: if false;
+      
+      function isValidUser(data) {
+        return data.get('displayName', '') is string && data.get('displayName', '').size() > 0 && data.get('displayName', '').size() < 100
+            && data.get('username', '') is string
+            && data.get('username', '').size() < 50
+
+            && (
+              data.get('usernameCustomized', false) == true ||
+              data.get('usernameCustomized', false) == false
+            )
+
+            && (
+              data.get('usernameCustomized', false) == false
+              ||
+              (
+                data.get('username', '').size() >= 4
+                &&
+                data.get('username', '').size() <= 20
+                &&
+                data.get('username', '')
+                  .matches('^[a-z0-9._]+$')
+              )
+            )
+            && data.get('usernameChangedAt', request.time) is timestamp
+            && data.get('email', '') is string && data.get('email', '').size() <= 200
+            && data.get('nationality', '') is string && data.get('nationality', '').size() < 100
+            && data.get('birthday', '') is string && data.get('birthday', '').size() < 20
+            && data.get('gender', 'O') in ['M', 'F', 'O']
+            && data.get('residence', '') is string && data.get('residence', '').size() < 200
+            && data.get('visitedCities', 0) is number
+            && data.get('bio', '') is string && data.get('bio', '').size() <= 2000
+            && (data.get('isTrajectoryPublic', true) == true || data.get('isTrajectoryPublic', true) == false)
+            && (data.get('isDeleted', false) == true || data.get('isDeleted', false) == false);
+      }
+
+      match /savedTrips/{tripId} {
+        allow read: if isSignedIn();
+        allow write: if isActiveUser() && request.auth.uid == userId;
+      }
+      
+      match /savedPosts/{postId} {
+        allow read: if isSignedIn();
+        allow write: if isActiveUser() && request.auth.uid == userId;
+      }
+    }
+
+    // Unique public SyncTime usernames
+    match /usernames/{username} {
+      allow read: if isSignedIn();
+
+      allow create: if isActiveUser()
+        && request.resource.data.uid == request.auth.uid
+        && username.size() >= 4
+        && username.size() <= 20
+        && username.matches('^[a-z0-9._]+$');
+
+      allow update: if false;
+
+      allow delete: if isActiveUser()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // Report Rules
+    match /reports/{reportId} {
+      allow create: if isActiveUser();
+    }
+
+    // Stay Rules
+    match /stays/{stayId} {
+      allow read: if isSignedIn();
+      allow create: if isActiveUser() && request.resource.data.userId == request.auth.uid && isValidStay(request.resource.data);
+      allow update: if isActiveUser() && resource.data.userId == request.auth.uid && isValidStay(request.resource.data);
+      allow delete: if isActiveUser() && resource.data.userId == request.auth.uid;
+
+      function isValidStay(data) {
+        return data.userId is string && data.country is string && data.country.size() > 0
+            && data.city is string && data.city.size() > 0
+            && data.startDate is string && data.startDate.size() > 0
+            && data.endDate is string && data.endDate.size() > 0;
+      }
+    }
+
+    // Notification Rules
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.fromId || request.auth.uid == resource.data.toId);
+      allow create: if isActiveUser() && request.auth.uid == request.resource.data.fromId;
+      allow update: if isActiveUser() && (
+        (request.auth.uid == resource.data.toId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        (request.auth.uid == resource.data.fromId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+      );
+      allow delete: if isActiveUser() && (request.auth.uid == resource.data.fromId || request.auth.uid == resource.data.toId);
+    }
+
+    // Trip Rules
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow create: if isActiveUser() && isValidTrip(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isActiveUser() && (
+        (resource.data.authorId == request.auth.uid && isValidTrip(request.resource.data)) || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'status', 'chatRoomId']) && (request.auth.uid == resource.data.authorId || request.auth.uid in resource.data.get('members', [])))
+      );
+      allow delete: if isActiveUser() && resource.data.authorId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isActiveUser() && request.resource.data.authorId == request.auth.uid;
+        allow update: if isActiveUser() && (
+          resource.data.authorId == request.auth.uid ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount'])
+        );
+
+        match /replies/{replyId} {
+          allow read: if isSignedIn();
+          allow create: if isActiveUser() && request.resource.data.authorId == request.auth.uid;
+          allow delete: if isActiveUser() && resource.data.authorId == request.auth.uid;
+        }
+
+        match /likes/{userId} {
+          allow read: if isSignedIn();
+          allow write: if isActiveUser() && request.auth.uid == userId;
+        }
+      }
+
+      function isValidTrip(data) {
+        return data.authorId is string && data.country is string && data.country.size() > 0
+            && data.get('cities', []) is list && data.get('cities', []).size() > 0
+            && data.get('budgetLevel', '低價') in ['高價', '中價', '低價']
+            && (data.get('accommodations', []) is list)
+            && (data.get('itinerary', []) is list);
+      }
+    }
+
+    // Bar Post Rules
+    match /barPosts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isActiveUser() && isValidBarPost(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isActiveUser() && (
+        (resource.data.authorId == request.auth.uid && isValidBarPost(request.resource.data)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'favoritesCount']))
+      );
+      allow delete: if isActiveUser() && resource.data.authorId == request.auth.uid;
+
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        allow write: if isActiveUser() && request.auth.uid == userId;
+      }
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isActiveUser() && request.resource.data.authorId == request.auth.uid;
+        allow delete: if isActiveUser() && resource.data.authorId == request.auth.uid;
+      }
+
+      function isValidBarPost(data) {
+        return data.authorId is string && data.content is string && data.content.size() > 0;
+      }
+    }
+
+    // Friend Request Rules
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if isActiveUser() && request.auth.uid == request.resource.data.senderId && isValidRequest(request.resource.data);
+      allow update: if isActiveUser() && (
+        (request.auth.uid == resource.data.receiverId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        (request.auth.uid == resource.data.senderId && request.resource.data.status == 'pending')
+      );
+      allow delete: if isActiveUser() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      
+      function isValidRequest(data) {
+        return data.senderId is string && data.receiverId is string && data.get('status', '') in ['pending', 'approved', 'rejected'];
+      }
+    }
+
+    // Chat Room Rules
+    match /chatRooms/{roomId} {
+      function canAccessGroupChat(chatData) {
+        return chatData != null && chatData.get('type', '') == 'group' && (
+          (chatData.get('tripId', '') != '' && exists(/databases/$(database)/documents/trips/$(chatData.tripId)) && (
+            get(/databases/$(database)/documents/trips/$(chatData.tripId)).data.authorId == request.auth.uid ||
+            request.auth.uid in get(/databases/$(database)/documents/trips/$(chatData.tripId)).data.get('members', [])
+          )) ||
+          request.auth.uid in chatData.get('participants', [])
+        );
+      }
+
+      function isRoomMember(chatData) {
+        return chatData != null && (
+          request.auth.uid in chatData.get('participants', []) ||
+          canAccessGroupChat(chatData)
+        );
+      }
+
+      allow get: if isSignedIn() && (
+        request.auth.uid in resource.data.participants ||
+        canAccessGroupChat(resource.data)
+      );
+      allow list: if isSignedIn() && (
+        request.auth.uid in resource.data.participants || 
+        resource.data.get('type', '') == 'group'
+      );
+      allow create: if isActiveUser() && request.auth.uid in request.resource.data.participants && (
+        (request.resource.data.get('type', 'individual') in ['individual', 'direct'] && request.resource.data.participants.size() == 2) ||
+        (request.resource.data.get('type', '') == 'group' && (request.auth.uid in request.resource.data.participants || canAccessGroupChat(request.resource.data)))
+      );
+      allow update: if isActiveUser() && (
+        request.auth.uid in resource.data.participants ||
+        canAccessGroupChat(resource.data)
+      );
+      allow delete: if isActiveUser() && (
+        request.auth.uid in resource.data.get('participants', []) ||
+        canAccessGroupChat(resource.data)
+      );
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          exists(/databases/$(database)/documents/chatRooms/$(roomId)) &&
+          isRoomMember(get(/databases/$(database)/documents/chatRooms/$(roomId)).data)
+        );
+        allow create: if isActiveUser() && (
+          exists(/databases/$(database)/documents/chatRooms/$(roomId)) &&
+          isRoomMember(get(/databases/$(database)/documents/chatRooms/$(roomId)).data)
+        ) && request.resource.data.senderId == request.auth.uid;
+        allow update: if isActiveUser() && (
+          exists(/databases/$(database)/documents/chatRooms/$(roomId)) &&
+          isRoomMember(get(/databases/$(database)/documents/chatRooms/$(roomId)).data)
+        ) && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll']) ||
+          resource.data.senderId == request.auth.uid
+        );
+        allow delete: if isActiveUser() && (
+          !exists(/databases/$(database)/documents/chatRooms/$(roomId)) ||
+          isRoomMember(get(/databases/$(database)/documents/chatRooms/$(roomId)).data)
+        );
+      }
+    }
+
+    // User Reviews Rules
+    match /userReviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isActiveUser() && isValidUserReview(request.resource.data) && request.resource.data.targetUserId != request.auth.uid;
+      allow update, delete: if isActiveUser() && resource.data.reviewerId == request.auth.uid;
+
+      function isValidUserReview(data) {
+        return data.get('targetUserId', '') is string && data.get('targetUserId', '').size() < 128
+            && data.get('reviewerId', '') is string && data.get('reviewerId', '').size() < 128
+            && data.get('reviewerId', '') == request.auth.uid
+            && data.get('reviewerName', '') is string && data.get('reviewerName', '').size() > 0 && data.get('reviewerName', '').size() < 100
+            && data.get('reviewerAvatar', '') is string
+            && data.get('rating', 0) is number && data.get('rating', 0) >= 1 && data.get('rating', 0) <= 5
+            && data.get('content', '') is string && data.get('content', '').size() < 5000
+            && data.get('createdAt', '') is string
+            && data.get('tags', []) is list && data.get('tags', []).size() <= 20;
+      }
+    }
+  }
+}

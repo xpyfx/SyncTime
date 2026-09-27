@@ -1,0 +1,6 @@
+{
+  "name": "SyncTime",
+  "description": "SyncTime 共時 - A premium, Apple-inspired mobile application for finding travel partners, sharing travel experiences, and real-time chatting.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
