@@ -219,7 +219,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
   const handleChat = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!user || user.uid === post.authorId) return;
+    if (!user || user.uid === post.authorId || !author || author.isDeleted) return;
     const roomId = await getOrCreateChatRoom(user.uid, post.authorId);
     if (roomId && onChatClick) onChatClick(roomId);
   };
@@ -255,7 +255,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     }
   };
 
-  const isAuthor = user?.uid === post.authorId;
+  const isDeletedAuthor = !author || author.isDeleted;
+  const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
 
   return (
     <div className="border-b border-apple-gray-100/50 py-5 px-5 bg-white transition-colors">
@@ -270,7 +271,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               <img src={author.avatarUrl} alt={author.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
-                {author?.displayName?.[0] || '?'}
+                {isDeletedAuthor ? '—' : (author?.displayName?.[0] || '?')}
               </div>
             )}
           </div>
@@ -281,8 +282,12 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
         <div className="flex-1 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group" onClick={() => onAvatarClick?.(post.authorId)}>
-               <span className="font-bold text-sm tracking-tight group-hover:underline">{author?.displayName || '用戶'}</span>
-               <span className="text-[10px] text-apple-gray-300 font-medium">@{author?.username || 'unknown'}</span>
+               <span className="font-bold text-sm tracking-tight group-hover:underline">
+                 {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
+               </span>
+               <span className="text-[10px] text-apple-gray-300 font-medium">
+                 {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+               </span>
             </div>
             
             <div className="flex items-center gap-2">
@@ -566,7 +571,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           onClose={() => setIsReporting(false)}
           targetType="bar_post"
           targetId={post.id}
-          targetTitle={`見聞貼文: ${post.content.slice(0, 30)}${post.content.length > 30 ? '...' : ''} (由 ${author?.displayName || '旅客'} 發布)`}
+          targetTitle={`見聞貼文: ${post.content.slice(0, 30)}${post.content.length > 30 ? '...' : ''} (由 ${isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '旅客')} 發布)`}
           onSuccess={() => {
             setLocalReported(true);
           }}
