@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { SyncTimeLogo, OfficialAppleLogo, OfficialGoogleLogo } from './components/SyncTimeLogo';
 import { db } from './lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { MarketingLanding } from './pages/MarketingLanding';
 
 import { HomeView } from './pages/Home';
 import { TravelBarView } from './pages/TravelBar';
@@ -321,6 +322,12 @@ const AppContent = () => {
 };
 
 export default function App() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  if (path === '/' || path === '/promo') {
+    return <MarketingLanding />;
+  }
+
   return (
     <AuthProvider>
       <AppContent />
