@@ -1834,7 +1834,7 @@ export const ProfilePage: React.FC<{
                     setShowSettings(false);
                   }}
                 />
-                <ProfileItem icon={Shield} label="隱私與封鎖名單" onClick={() => {
+                <ProfileItem icon={Shield} label="封鎖名單" onClick={() => {
                   setShowBlocklist(true);
                   setShowSettings(false);
                 }} />
