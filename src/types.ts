@@ -1,3 +1,27 @@
+export type PushNotificationAudience =
+  | 'all'
+  | 'friends'
+  | 'non_friends'
+  | 'off';
+
+export interface PushNotificationPreferences {
+  postLike: PushNotificationAudience;
+  postComment: PushNotificationAudience;
+  commentLike: PushNotificationAudience;
+  tripJoinRequest: PushNotificationAudience;
+  friendRequest: boolean;
+  tripPublished: PushNotificationAudience;
+}
+
+export const DEFAULT_PUSH_NOTIFICATION_PREFERENCES: PushNotificationPreferences = {
+  postLike: 'all',
+  postComment: 'all',
+  commentLike: 'all',
+  tripJoinRequest: 'all',
+  friendRequest: true,
+  tripPublished: 'friends'
+};
+
 export interface GestureSettings {
   homeLeft: '收藏' | '不感興趣' | '檢舉';
   homeRight: '收藏' | '不感興趣' | '檢舉';
@@ -36,6 +60,7 @@ export interface UserProfile {
   bio?: string; // Self introduction
   interestTags?: string[]; // User selected interest tags (max 6)
   customExpenseCategories?: string[]; // User-defined expense categories persisted across trips
+  pushNotificationPreferences?: PushNotificationPreferences; // System push notification preferences
   isDeleted?: boolean;
   deletedAt?: string;
 }
@@ -127,6 +152,8 @@ export type NotificationType =
   | 'chat_message'
   | 'post_like'
   | 'post_comment'
+  | 'comment_like'
+  | 'trip_published'
   | 'trip_comment'
   | 'trip_itinerary_updated';
 
