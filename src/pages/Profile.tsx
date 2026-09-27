@@ -73,6 +73,7 @@ import { CompanionRadarChart } from '../components/CompanionRadarChart';
 import { COUNTRIES, ENGLISH_COUNTRIES, getCountryISO3, searchCities } from '../lib/locationData';
 import { COUNTRY_STAMPS, CountryStamp } from '../lib/countryStampData';
 import { CountryStampBadge } from '../components/CountryStampBadge';
+import { PassportSecurityWatermark, requestPassportMotionPermission } from '../components/PassportSecurityWatermark';
 
 const getZodiacSign = (dateVal: any) => {
   if (!dateVal) return 'Unknown';
@@ -582,7 +583,7 @@ export const ProfilePage: React.FC<{
 
   // Passport Content Component (Internal to ProfileView)
   const renderPassportContent = () => (
-    <div className="p-4 flex-1 flex flex-col min-h-0 relative select-none">
+    <div className="p-4 flex-1 flex flex-col min-h-0 relative z-[5] select-none">
       {/* Top Bar - Identity */}
       <div className="flex justify-between items-center mb-2.5">
         <div className="flex items-center gap-2">
@@ -748,7 +749,7 @@ export const ProfilePage: React.FC<{
 
       {/* Overprint Expired Stamp on Passport */}
       {isPassportExpired && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
           <div className="border-[3px] border-red-500/85 text-red-500 font-bold px-4 py-1.5 rounded-xl uppercase -rotate-12 bg-white/80 backdrop-blur-[1px] shadow-sm flex flex-col items-center select-none">
             <span className="text-[9px] font-bold tracking-widest text-red-500/90 mb-0.5">PASSPORT EXPIRED</span>
             <span className="text-sm font-black tracking-wider">該護照已過期</span>
@@ -2603,12 +2604,19 @@ export const ProfilePage: React.FC<{
           {/* Passport Header */}
           <div className="px-4 pt-4">
         <motion.div 
-          onClick={() => !isPassportExpired && setIsPassportExpanded(true)}
+          onClick={() => {
+            if (isPassportExpired) return;
+            void requestPassportMotionPermission();
+            setIsPassportExpanded(true);
+          }}
           className={`w-full aspect-[1.36/1] bg-[#F7FAFD] rounded-[24px] shadow-2xl border border-[#035096]/20 overflow-hidden relative flex flex-col ${isPassportExpired ? 'cursor-default opacity-95' : 'cursor-pointer active:scale-[0.99]'} transition-transform`}
         >
           {/* Passport Texture Overlay */}
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#035096 0.5px, transparent 0.5px)', backgroundSize: '10px 10px' }} />
           <div className="absolute inset-0 bg-gradient-to-tr from-[#035096]/[0.08] to-transparent pointer-events-none" />
+
+          {/* Dynamic anti-counterfeit watermark + holographic sheen */}
+          <PassportSecurityWatermark />
           
           {renderPassportContent()}
           
@@ -2619,7 +2627,7 @@ export const ProfilePage: React.FC<{
                 e.stopPropagation();
                 setShowEditPassport(true);
               }} 
-              className="absolute right-4 top-4 w-9 h-9 rounded-full bg-white/70 shadow-sm border border-white/90 text-[#035096] backdrop-blur-xl active:scale-90 transition-transform z-10 flex items-center justify-center cursor-pointer hover:bg-white"
+              className="absolute right-4 top-4 w-9 h-9 rounded-full bg-white/70 shadow-sm border border-white/90 text-[#035096] backdrop-blur-xl active:scale-90 transition-transform z-20 flex items-center justify-center cursor-pointer hover:bg-white"
               title="修改護照資料"
               aria-label="修改護照資料"
             >
