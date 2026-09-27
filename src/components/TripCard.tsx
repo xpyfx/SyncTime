@@ -16,12 +16,20 @@ interface TripCardProps {
 export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick, onCommentClick, onSaveToggle }) => {
   const { user } = useAuth();
   const [author, setAuthor] = useState<UserProfile | null>(null);
+  const [authorLoaded, setAuthorLoaded] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    getDoc(doc(db, 'users', trip.authorId)).then(s => {
-      if (s.exists()) setAuthor(s.data() as UserProfile);
-    });
+    setAuthor(null);
+    setAuthorLoaded(false);
+
+    getDoc(doc(db, 'users', trip.authorId))
+      .then(s => {
+        if (s.exists()) {
+          setAuthor(s.data() as UserProfile);
+        }
+      })
+      .finally(() => setAuthorLoaded(true));
   }, [trip.authorId]);
 
   useEffect(() => {
@@ -51,7 +59,8 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
     }
   };
 
-  const isAuthor = user?.uid === trip.authorId;
+  const isDeletedAuthor = authorLoaded && !author;
+  const isAuthor = user?.uid === trip.authorId && !isDeletedAuthor;
 
   return (
     <div 
@@ -71,13 +80,17 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
               <img src={author.avatarUrl} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
-                {author?.displayName?.[0] || '?'}
+                {isDeletedAuthor ? '—' : (author?.displayName?.[0] || '?')}
               </div>
             )}
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-xs tracking-tight group-hover:underline">{author?.displayName || '載入中...'}</span>
-            <span className="text-[10px] text-apple-gray-300 font-medium">@{author?.username || 'unknown'}</span>
+            <span className="font-bold text-xs tracking-tight group-hover:underline">
+              {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '載入中...')}
+            </span>
+            <span className="text-[10px] text-apple-gray-300 font-medium">
+              {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
