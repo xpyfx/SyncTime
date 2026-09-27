@@ -10,6 +10,14 @@ import { GlassSendButton } from '../components/GlassSendButton';
 import { GoogleMapsLocationModal } from '../components/GoogleMapsLocationModal';
 import { GoogleMapsLocationCard } from '../components/GoogleMapsLocationCard';
 
+const makeDeletedUserProfile = (uid: string): UserProfile => ({
+  uid,
+  displayName: '已註銷帳號',
+  username: '',
+  createdAt: '',
+  isDeleted: true
+});
+
 export interface TripDeletionInfo {
   isGroupTripEnded: boolean;
   isCountdownActive: boolean;
@@ -215,7 +223,13 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
 
   useEffect(() => {
     if (!isGroup && otherId) {
-      getDoc(doc(db, 'users', otherId)).then(s => s.exists() && setOtherUser(s.data() as UserProfile));
+      getDoc(doc(db, 'users', otherId)).then(s => {
+        setOtherUser(
+          s.exists()
+            ? (s.data() as UserProfile)
+            : makeDeletedUserProfile(otherId)
+        );
+      });
     } else if (isGroup) {
       if (room.tripId) {
         getDoc(doc(db, 'trips', room.tripId)).then(s => {
@@ -3258,9 +3272,9 @@ React.useLayoutEffect(() => {
       const profiles: {[key: string]: UserProfile} = {};
       for (const pId of rData.participants) {
         const uS = await getDoc(doc(db, 'users', pId));
-        if (uS.exists()) {
-          profiles[pId] = uS.data() as UserProfile;
-        }
+        profiles[pId] = uS.exists()
+          ? (uS.data() as UserProfile)
+          : makeDeletedUserProfile(pId);
       }
       setParticipantProfiles(profiles);
     }, (err) => {
@@ -5249,7 +5263,7 @@ React.useLayoutEffect(() => {
                   </div>
                   <div>
                     <h3 className="font-extrabold text-apple-gray-900 text-sm">
-                      {room?.type === 'group' ? room.name : otherUser?.displayName} 的紀錄庫
+                      {room?.type === 'group' ? room.name : (otherUser?.displayName || '已註銷帳號')} 的紀錄庫
                     </h3>
                     <p className="text-[10px] text-apple-gray-400 font-medium">查看照片、檔案、連結、地點、分帳、抽籤與行程</p>
                   </div>
