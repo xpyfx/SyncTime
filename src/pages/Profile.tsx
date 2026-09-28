@@ -286,7 +286,15 @@ export const ProfilePage: React.FC<{
   const [showGestureSettings, setShowGestureSettings] = useState(false);
   const [gestureSubMenu, setGestureSubMenu] = useState<keyof GestureSettings | null>(null);
   const [showEditPassport, setShowEditPassport] = useState(false);
-  const profilePageScrollYRef = useRef(0);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
   const [showTravelTrajectory, setShowTravelTrajectory] = useState(false);
   const [showFootprintInfo, setShowFootprintInfo] = useState(false);
   const [showFootprintDetail, setShowFootprintDetail] = useState(false);
@@ -340,52 +348,7 @@ export const ProfilePage: React.FC<{
   const [showResidenceDropdown, setShowResidenceDropdown] = useState(false);
   const residenceDropdownRef = useRef<HTMLDivElement>(null);
 
-  // The passport editor is a full-screen overlay with its own scroll area.
-  // Lock the underlying profile page while it is open so trackpad/touch
-  // scrolling at the editor's top/bottom cannot scroll the page behind it.
-  useEffect(() => {
-    if (!showEditPassport) return;
 
-    const scrollY = window.scrollY;
-    profilePageScrollYRef.current = scrollY;
-
-    const body = document.body;
-    const html = document.documentElement;
-
-    const previousBodyStyles = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow
-    };
-    const previousHtmlOverflow = html.style.overflow;
-
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-    html.style.overflow = 'hidden';
-
-    return () => {
-      body.style.position = previousBodyStyles.position;
-      body.style.top = previousBodyStyles.top;
-      body.style.left = previousBodyStyles.left;
-      body.style.right = previousBodyStyles.right;
-      body.style.width = previousBodyStyles.width;
-      body.style.overflow = previousBodyStyles.overflow;
-      html.style.overflow = previousHtmlOverflow;
-
-      window.scrollTo({
-        top: profilePageScrollYRef.current,
-        left: 0,
-        behavior: 'auto'
-      });
-    };
-  }, [showEditPassport]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -419,58 +382,6 @@ export const ProfilePage: React.FC<{
   const [savedBarPosts, setSavedBarPosts] = useState<BarPost[]>([]);
   const [barAuthors, setBarAuthors] = useState<Record<string, UserProfile>>({});
 
-  const isAnySettingsSubPageOpen = Boolean(
-    showGestureSettings ||
-    showNotificationSettings ||
-    showBlocklist ||
-    showPrivacyPolicy ||
-    showHiddenPosts ||
-    showAIAssistant
-  );
-
-  useEffect(() => {
-    const isAnyModalOpen = Boolean(
-      showSettings ||
-      showGestureSettings ||
-      showNotificationSettings ||
-      showBlocklist ||
-      showPrivacyPolicy ||
-      showHiddenPosts ||
-      showAIAssistant ||
-      showEditPassport ||
-      showTravelTrajectory ||
-      showSaved ||
-      showMyTrips ||
-      showFriends ||
-      showDeleteAccountModal
-    );
-
-    if (isAnyModalOpen) {
-      const prevOverflow = document.body.style.overflow;
-      const prevOverscroll = document.body.style.overscrollBehavior;
-      document.body.style.overflow = 'hidden';
-      document.body.style.overscrollBehavior = 'none';
-      return () => {
-        document.body.style.overflow = prevOverflow;
-        document.body.style.overscrollBehavior = prevOverscroll;
-      };
-    }
-  }, [
-    showSettings,
-    showGestureSettings,
-    showNotificationSettings,
-    showBlocklist,
-    showPrivacyPolicy,
-    showHiddenPosts,
-    showAIAssistant,
-    showEditPassport,
-    showTravelTrajectory,
-    showSaved,
-    showMyTrips,
-    showFriends,
-    showDeleteAccountModal
-  ]);
-
   // Form state for editing passport
   const [passportForm, setPassportForm] = useState({
     displayName: '',
@@ -487,6 +398,68 @@ export const ProfilePage: React.FC<{
   const [stampSearchQuery, setStampSearchQuery] = useState('');
   const [selectedStamp, setSelectedStamp] = useState<CountryStamp | null>(null);
   const [showTagsSelectModal, setShowTagsSelectModal] = useState(false);
+
+  const isAnySettingsSubPageOpen = Boolean(
+    showGestureSettings ||
+    showNotificationSettings ||
+    showBlocklist ||
+    showPrivacyPolicy ||
+    showHiddenPosts ||
+    showAIAssistant
+  );
+
+  const isAnyModalOpen = Boolean(
+    showSettings ||
+    showGestureSettings ||
+    showNotificationSettings ||
+    showBlocklist ||
+    showPrivacyPolicy ||
+    showHiddenPosts ||
+    showAIAssistant ||
+    showEditPassport ||
+    showTravelTrajectory ||
+    showSaved ||
+    showMyTrips ||
+    showFriends ||
+    showDeleteAccountModal ||
+    isPassportExpanded ||
+    showRequests ||
+    showBlockConfirmModal ||
+    showTagsSelectModal ||
+    showUsernameEditModal ||
+    showFootprintDetail ||
+    showFootprintInfo ||
+    goodbyeFriend ||
+    reportModalConfig.isOpen
+  );
+
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.documentElement.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [isAnyModalOpen]);
 
   // Map of unlocked stamps for the profile user based on trips and profile info
   const userStampMap = React.useMemo(() => {
@@ -971,37 +944,37 @@ export const ProfilePage: React.FC<{
     
     // Validation
     if (!passportForm.displayName.trim()) {
-      alert('姓名 (NAME) 為必填欄位');
+      setToastMessage({ text: '姓名 (NAME) 為必填欄位', type: 'error' });
       return;
     }
     if (!passportForm.nationality.trim()) {
-      alert('國籍 (NATIONALITY) 為必填欄位');
+      setToastMessage({ text: '國籍 (NATIONALITY) 為必填欄位', type: 'error' });
       return;
     }
     if (!ENGLISH_COUNTRIES.includes(passportForm.nationality)) {
-      alert('請由清單中選擇正確的國籍 (請選擇英文名稱)');
+      setToastMessage({ text: '請由清單中選擇正確的國籍 (請選擇英文名稱)', type: 'error' });
       return;
     }
     if (!passportForm.birthday) {
-      alert('出生日期 (DATE OF BIRTH) 為必填欄位');
+      setToastMessage({ text: '出生日期 (DATE OF BIRTH) 為必填欄位', type: 'error' });
       return;
     }
     if (!passportForm.gender) {
-      alert('性別 (GENDER) 為必填欄位');
+      setToastMessage({ text: '性別 (GENDER) 為必填欄位', type: 'error' });
       return;
     }
     if (!passportForm.residence.trim()) {
-      alert('目前居住地 (RESIDENCY / CURRENT CITY) 為必填欄位');
+      setToastMessage({ text: '目前居住地 (RESIDENCY / CURRENT CITY) 為必填欄位', type: 'error' });
       return;
     }
 
     try {
       await updateDoc(doc(db, 'users', user.uid), passportForm);
       setShowEditPassport(false);
-      alert('護照資料已更新');
-    } catch (e) {
+      setToastMessage({ text: '護照資料已成功更新', type: 'success' });
+    } catch (e: any) {
       console.error(e);
-      alert('更新失敗');
+      setToastMessage({ text: `更新失敗：${e?.message || '請稍後再試'}`, type: 'error' });
     }
   };
 
@@ -1583,7 +1556,7 @@ export const ProfilePage: React.FC<{
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-apple-gray-50">
+    <div className="flex flex-col min-h-screen bg-apple-gray-50 overflow-x-hidden touch-pan-y">
       {/* Top Action Icons - Sticky with iPhone Safe Area Inset and Comfort Margin */}
       <div className="sticky top-0 left-0 right-0 z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 flex items-center justify-between pointer-events-none bg-apple-gray-50/90 backdrop-blur-md transition-all">
         {onBack ? (
@@ -2135,20 +2108,39 @@ export const ProfilePage: React.FC<{
       <AnimatePresence>
         {showEditPassport && (
           <motion.div 
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-white flex flex-col overscroll-none"
+            initial={{ y: '100%' }} 
+            animate={{ y: 0 }} 
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden overscroll-none touch-pan-y shadow-2xl"
+            style={{ 
+              overscrollBehaviorX: 'none', 
+              touchAction: 'pan-y',
+              WebkitOverflowScrolling: 'touch'
+            }}
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
-              <h2 className="text-lg font-bold">修改護照資料</h2>
-              <button onClick={() => setShowEditPassport(false)} className="text-apple-gray-400 px-2 py-1">取消</button>
+              <h2 className="text-lg font-bold text-apple-gray-900">修改護照資料</h2>
+              <button 
+                type="button"
+                onClick={() => setShowEditPassport(false)} 
+                className="text-apple-gray-400 hover:text-apple-gray-600 px-2 py-1 font-medium transition-colors cursor-pointer"
+              >
+                取消
+              </button>
             </div>
             
             <div
-              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-8"
-              style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-6 space-y-8 w-full max-w-full touch-pan-y"
+              style={{ 
+                overscrollBehaviorX: 'none', 
+                overscrollBehaviorY: 'contain', 
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y'
+              }}
             >
               {/* Avatar Editor */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center w-full max-w-full">
                 <div 
                   className="relative group cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
@@ -2174,10 +2166,10 @@ export const ProfilePage: React.FC<{
                     onChange={handleFileChange} 
                   />
                 </div>
-                <div className="mt-6 w-full">
+                <div className="mt-6 w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase px-1">頭像設定 (Avatar Settings)</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
+                  <div className="flex gap-2 w-full max-w-full">
+                    <div className="relative flex-1 min-w-0">
                       <input 
                         type="text" 
                         placeholder="手動貼上圖片網址..."
@@ -2187,20 +2179,22 @@ export const ProfilePage: React.FC<{
                             setPassportForm(p => ({ ...p, avatarUrl: e.target.value }));
                           }
                         }}
-                        className={`w-full bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-Semibold ${passportForm.avatarUrl.startsWith('data:') ? 'text-apple-gray-300 italic' : ''}`}
+                        className={`w-full min-w-0 bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-Semibold ${passportForm.avatarUrl.startsWith('data:') ? 'text-apple-gray-300 italic' : ''}`}
                       />
                       {passportForm.avatarUrl.startsWith('data:') && (
                         <button 
+                          type="button"
                           onClick={() => setPassportForm(p => ({ ...p, avatarUrl: profile?.avatarUrl || '' }))}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-apple-blue font-bold text-[10px] hover:underline px-2 h-8"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-apple-blue font-bold text-[10px] hover:underline px-2 h-8 cursor-pointer"
                         >
                           重置
                         </button>
                       )}
                     </div>
                     <button 
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-5 bg-apple-gray-900 text-white rounded-xl text-xs font-black h-12 flex items-center gap-2 active:scale-95 transition-transform shrink-0"
+                      className="px-4 bg-apple-gray-900 text-white rounded-xl text-xs font-black h-12 flex items-center gap-1.5 active:scale-95 transition-transform shrink-0 cursor-pointer"
                     >
                       <Edit2 size={14} />
                       選取檔案
@@ -2212,25 +2206,25 @@ export const ProfilePage: React.FC<{
                 </div>
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-apple-gray-50">
-                <div>
+              <div className="space-y-4 pt-2 border-t border-apple-gray-50 w-full max-w-full">
+                <div className="w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">姓名 (Name) <span className="text-red-400">*</span></label>
                   <input 
                     type="text" 
                     value={passportForm.displayName}
                     onChange={e => setPassportForm(p => ({ ...p, displayName: e.target.value }))}
-                    className="w-full bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-bold"
+                    className="w-full min-w-0 bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
                   />
                 </div>
 
-                <div>
+                <div className="w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">
                     SyncTime ID
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowUsernameEditModal(true)}
-                    className="w-full min-h-12 bg-apple-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-left active:bg-apple-gray-100 transition-colors"
+                    className="w-full min-w-0 bg-apple-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-left active:bg-apple-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-apple-gray-900 truncate">
@@ -2246,9 +2240,10 @@ export const ProfilePage: React.FC<{
                     </div>
                   </button>
                 </div>
-                <div className="relative" ref={countryDropdownRef}>
+
+                <div className="relative w-full max-w-full" ref={countryDropdownRef}>
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">國籍 (Nationality) <span className="text-red-400">*</span></label>
-                  <div className="relative">
+                  <div className="relative w-full max-w-full">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-apple-gray-300 pointer-events-none">
                       <Globe size={16} />
                     </div>
@@ -2261,20 +2256,21 @@ export const ProfilePage: React.FC<{
                         setCountrySearch('');
                       }}
                       onChange={e => setCountrySearch(e.target.value)}
-                      className="w-full bg-apple-gray-50 rounded-xl pl-11 pr-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
+                      className="w-full min-w-0 bg-apple-gray-50 rounded-xl pl-11 pr-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
                     />
                     {showCountryDropdown && (
-                      <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white rounded-2xl shadow-apple-lg border border-apple-gray-100 max-h-[250px] overflow-y-auto z-[300] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="absolute top-[calc(100%+4px)] left-0 right-0 w-full bg-white rounded-2xl shadow-apple-lg border border-apple-gray-100 max-h-[250px] overflow-y-auto overflow-x-hidden z-[300] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         {ENGLISH_COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase())).length > 0 ? (
                           ENGLISH_COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase())).slice(0, 50).map((country, index) => (
                             <button
                               key={`${country}-${index}`}
+                              type="button"
                               onClick={() => {
                                 setPassportForm(p => ({ ...p, nationality: country }));
                                 setShowCountryDropdown(false);
                                 setCountrySearch('');
                               }}
-                              className="w-full text-left px-4 py-3 text-sm hover:bg-apple-gray-50 active:bg-apple-gray-100 transition-colors border-b border-apple-gray-50 last:border-0"
+                              className="w-full text-left px-4 py-3 text-sm hover:bg-apple-gray-50 active:bg-apple-gray-100 transition-colors border-b border-apple-gray-50 last:border-0 cursor-pointer"
                             >
                               <div className="font-bold text-apple-gray-700">{country}</div>
                             </button>
@@ -2286,9 +2282,10 @@ export const ProfilePage: React.FC<{
                     )}
                   </div>
                 </div>
-                <div className="relative" ref={residenceDropdownRef}>
+
+                <div className="relative w-full max-w-full" ref={residenceDropdownRef}>
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">目前居住地 (Residency / Current City) <span className="text-red-400">*</span></label>
-                  <div className="relative">
+                  <div className="relative w-full max-w-full">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-apple-gray-300 pointer-events-none">
                       <MapPin size={16} />
                     </div>
@@ -2301,10 +2298,10 @@ export const ProfilePage: React.FC<{
                         setResidenceSearch('');
                       }}
                       onChange={e => setResidenceSearch(e.target.value)}
-                      className="w-full bg-apple-gray-50 rounded-xl pl-11 pr-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
+                      className="w-full min-w-0 bg-apple-gray-50 rounded-xl pl-11 pr-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
                     />
                     {showResidenceDropdown && (
-                      <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white rounded-2xl shadow-apple-lg border border-apple-gray-100 max-h-[250px] overflow-y-auto z-[300] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="absolute top-[calc(100%+4px)] left-0 right-0 w-full bg-white rounded-2xl shadow-apple-lg border border-apple-gray-100 max-h-[250px] overflow-y-auto overflow-x-hidden z-[300] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         {searchCities(residenceSearch).length > 0 ? (
                           searchCities(residenceSearch).map((city, index) => (
                             <button
@@ -2315,7 +2312,7 @@ export const ProfilePage: React.FC<{
                                 setShowResidenceDropdown(false);
                                 setResidenceSearch('');
                               }}
-                              className="w-full text-left px-4 py-3 text-sm hover:bg-apple-gray-50 active:bg-apple-gray-100 transition-colors border-b border-apple-gray-50 last:border-0"
+                              className="w-full text-left px-4 py-3 text-sm hover:bg-apple-gray-50 active:bg-apple-gray-100 transition-colors border-b border-apple-gray-50 last:border-0 cursor-pointer"
                             >
                               <div className="font-bold text-apple-gray-700">{city}</div>
                             </button>
@@ -2327,46 +2324,53 @@ export const ProfilePage: React.FC<{
                     )}
                   </div>
                 </div>
-                <div>
+
+                <div className="w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">出生日期 (Date of Birth) <span className="text-red-400">*</span></label>
                   <input 
                     type="date" 
                     value={passportForm.birthday}
                     onChange={e => setPassportForm(p => ({ ...p, birthday: e.target.value }))}
-                    className="w-full bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-bold"
+                    className="w-full min-w-0 bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue font-bold text-apple-gray-900"
                   />
                 </div>
-                <div>
+
+                <div className="w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">性別 (Gender) <span className="text-red-400">*</span></label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full max-w-full">
                     {(['M', 'F', 'O'] as const).map(g => (
                       <button
                         key={g}
+                        type="button"
                         onClick={() => setPassportForm(p => ({ ...p, gender: g }))}
-                        className={`flex-1 h-12 rounded-xl text-sm font-bold transition-all ${passportForm.gender === g ? 'bg-apple-gray-600 text-white' : 'bg-apple-gray-50 text-apple-gray-400'}`}
+                        className={`flex-1 min-w-0 h-12 rounded-xl text-sm font-bold transition-all cursor-pointer ${passportForm.gender === g ? 'bg-apple-gray-600 text-white shadow-xs' : 'bg-apple-gray-50 text-apple-gray-400 hover:bg-apple-gray-100'}`}
                       >
                         {g === 'M' ? '男' : g === 'F' ? '女' : '其他'}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div>
+
+                <div className="w-full max-w-full">
                   <label className="text-xs font-bold text-apple-gray-300 mb-2 block uppercase">已旅國 (Visited Countries/Cities)</label>
                   <input 
                     type="number" 
                     value={passportForm.visitedCities}
                     onChange={e => setPassportForm(p => ({ ...p, visitedCities: parseInt(e.target.value) || 0 }))}
-                    className="w-full bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue"
+                    className="w-full min-w-0 bg-apple-gray-50 rounded-xl px-4 h-12 text-sm focus:outline-apple-blue text-apple-gray-900"
                   />
                 </div>
               </div>
 
-              <button 
-                onClick={handleUpdatePassport}
-                className="w-full bg-apple-blue text-white h-14 rounded-2xl font-bold shadow-apple-md active:scale-95 transition-transform"
-              >
-                儲存更新
-              </button>
+              <div className="w-full max-w-full pt-2">
+                <button 
+                  type="button"
+                  onClick={handleUpdatePassport}
+                  className="w-full bg-apple-blue text-white h-14 rounded-2xl font-bold shadow-apple-md active:scale-95 transition-transform cursor-pointer"
+                >
+                  儲存更新
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -2377,7 +2381,7 @@ export const ProfilePage: React.FC<{
         {showRequests && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-white flex flex-col"
+            className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
               <h2 className="text-lg font-bold">好友申請</h2>
@@ -2516,7 +2520,7 @@ export const ProfilePage: React.FC<{
         {showFriends && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-apple-gray-50 flex flex-col"
+            className="fixed inset-0 z-[200] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <h2 className="text-lg font-bold text-apple-gray-900">我的好友</h2>
@@ -4090,7 +4094,7 @@ export const ProfilePage: React.FC<{
         {showMyTrips && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-white flex flex-col"
+            className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold">我的旅程</h2>
@@ -4150,7 +4154,7 @@ export const ProfilePage: React.FC<{
         {showSaved && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-white flex flex-col"
+            className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold text-apple-gray-900 border-none">收藏</h2>
@@ -4339,6 +4343,32 @@ export const ProfilePage: React.FC<{
         currentTags={profile?.interestTags ?? DEFAULT_USER_TAGS}
         onSave={handleSaveInterestTags}
       />
+
+      {/* Floating Toast Notification Banner */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-6 inset-x-0 mx-auto max-w-xs z-[999] pointer-events-none px-4"
+          >
+            <div className={`px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-2.5 backdrop-blur-xl ${
+              toastMessage.type === 'success' 
+                ? 'bg-zinc-900/95 text-white border-zinc-700/60' 
+                : 'bg-rose-900/95 text-white border-rose-700/60'
+            }`}>
+              {toastMessage.type === 'success' ? (
+                <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle size={18} className="text-rose-300 shrink-0" />
+              )}
+              <span className="text-xs font-bold leading-snug">{toastMessage.text}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

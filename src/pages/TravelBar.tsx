@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Search, Plus, Send, ThumbsUp, Bookmark, EyeOff, ShieldAlert, Check, Flame, Sparkles, Compass, Tag, Filter } from 'lucide-react';
+import { Search, Plus, Send, ThumbsUp, Bookmark, EyeOff, ShieldAlert, Check, Flame, Sparkles, Compass, Tag, Filter, AtSign } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, increment, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, getDocs, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, increment, where } from 'firebase/firestore';
 import { BarPost, UserProfile, GestureSettings, Trip } from '../types';
 import { BarPostCard } from '../components/BarPostCard';
 import { GlassSearchInput } from '../components/GlassSearchInput';
@@ -11,14 +11,66 @@ import { SwipeableWrapper } from '../components/SwipeableWrapper';
 import { ReportModal } from '../components/ReportModal';
 import { PopularTravelBarSection } from '../components/PopularTravelBarSection';
 import { rankRecommendedPosts, extractHashtags, ScoredBarPost } from '../lib/recommendationEngine';
+import { UserMentionPickerModal } from '../components/UserMentionPickerModal';
 
 export const TravelBarView: React.FC<{ 
   onChatClick: (roomId: string) => void,
   onAvatarClick?: (uid: string) => void,
-  initialTab?: 'hot' | 'recommended' | 'friends'
-}> = ({ onChatClick, onAvatarClick, initialTab = 'hot' }) => {
+  initialTab?: 'hot' | 'recommended' | 'friends',
+  targetPostId?: string | null,
+  onClearTargetPost?: () => void,
+  onTabChange?: (tab: 'hot' | 'recommended' | 'friends') => void
+}> = ({ onChatClick, onAvatarClick, initialTab = 'hot', targetPostId, onClearTargetPost, onTabChange }) => {
   const [posts, setPosts] = useState<BarPost[]>([]);
-  const [activeTab, setActiveTab] = useState<'hot' | 'recommended' | 'friends'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'hot' | 'recommended' | 'friends'>(() => {
+    if (targetPostId) return 'recommended';
+    const saved = localStorage.getItem('synctime_travelbar_active_tab') as 'hot' | 'recommended' | 'friends' | null;
+    if (saved && ['hot', 'recommended', 'friends'].includes(saved)) {
+      return saved;
+    }
+    return initialTab;
+  });
+  const [extraTargetPost, setExtraTargetPost] = useState<BarPost | null>(null);
+
+  const handleTabChange = (tab: 'hot' | 'recommended' | 'friends') => {
+    setActiveTab(tab);
+    localStorage.setItem('synctime_travelbar_active_tab', tab);
+    onTabChange?.(tab);
+  };
+
+  useEffect(() => {
+    localStorage.setItem('synctime_travelbar_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!targetPostId) {
+      setExtraTargetPost(null);
+      return;
+    }
+    setActiveTab('recommended');
+    const existing = posts.find(p => p.id === targetPostId);
+    if (!existing) {
+      getDoc(doc(db, 'barPosts', targetPostId)).then(snap => {
+        if (snap.exists()) {
+          const p = { id: snap.id, ...snap.data() } as BarPost;
+          setExtraTargetPost(p);
+          if (!authors[p.authorId]) {
+            getDoc(doc(db, 'users', p.authorId)).then(uSnap => {
+              if (uSnap.exists()) {
+                setAuthors(prev => ({ ...prev, [p.authorId]: uSnap.data() as UserProfile }));
+              }
+            });
+          }
+        }
+      }).catch(console.warn);
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`post-${targetPostId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 400);
+  }, [targetPostId, posts]);
   const [authors, setAuthors] = useState<Record<string, UserProfile>>({});
   const [search, setSearch] = useState('');
   const [isPosting, setIsPosting] = useState(false);
@@ -30,6 +82,8 @@ export const TravelBarView: React.FC<{
   const [showReportFeedback, setShowReportFeedback] = useState(false);
   const [userTrips, setUserTrips] = useState<Trip[]>([]);
   const [selectedInterestTag, setSelectedInterestTag] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
   const { user, profile, isUserBlocked } = useAuth();
 
   useEffect(() => {
@@ -77,6 +131,16 @@ export const TravelBarView: React.FC<{
     };
   }, [user]);
 
+  // Fetch all registered users for @ mentions
+  useEffect(() => {
+    getDocs(collection(db, 'users')).then(snap => {
+      const uList = snap.docs
+        .map(d => ({ uid: d.id, ...d.data() } as UserProfile))
+        .filter(u => !u.isDeleted && u.uid !== user?.uid);
+      setAllUsers(uList);
+    }).catch(console.warn);
+  }, [user]);
+
   useEffect(() => {
     const q = query(collection(db, 'barPosts'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, async (snapshot) => {
@@ -108,6 +172,31 @@ export const TravelBarView: React.FC<{
     });
   }, []);
 
+  // Check if current draft content is typing @query for real-time suggestions
+  const mentionMatch = useMemo(() => {
+    const match = newPostContent.match(/@([a-zA-Z0-9_.\u4e00-\u9fa5]*)$/);
+    return match ? match[1].toLowerCase() : null;
+  }, [newPostContent]);
+
+  const mentionSuggestions = useMemo(() => {
+    if (mentionMatch === null) return [];
+    return allUsers.filter(u => 
+      !isUserBlocked(u.uid) && (
+        (u.username && u.username.toLowerCase().includes(mentionMatch)) ||
+        (u.displayName && u.displayName.toLowerCase().includes(mentionMatch))
+      )
+    ).slice(0, 6);
+  }, [mentionMatch, allUsers, isUserBlocked]);
+
+  const handleSelectMention = (targetUser: UserProfile) => {
+    const handle = targetUser.username || targetUser.displayName;
+    if (mentionMatch !== null) {
+      setNewPostContent(prev => prev.replace(/@([a-zA-Z0-9_.\u4e00-\u9fa5]*)$/, `@${handle} `));
+    } else {
+      setNewPostContent(prev => prev ? `${prev} @${handle} ` : `@${handle} `);
+    }
+  };
+
   const handleCreatePost = async () => {
     if (isSubmitting) return;
     if (!newPostContent.trim() || !user) return;
@@ -115,15 +204,55 @@ export const TravelBarView: React.FC<{
     const path = 'barPosts';
     try {
       const tags = extractHashtags(newPostContent);
-      await addDoc(collection(db, path), {
+
+      // Extract all @mentions from newPostContent
+      const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
+      const mentionMatches = Array.from(newPostContent.matchAll(mentionRegex), m => m[1].toLowerCase());
+      
+      const mentionedUserIds: string[] = [];
+      const mentionedProfiles: UserProfile[] = [];
+
+      mentionMatches.forEach(tag => {
+        const found = allUsers.find(u => 
+          (u.username && u.username.toLowerCase() === tag) || 
+          (u.displayName && u.displayName.toLowerCase() === tag)
+        );
+        if (found && !mentionedUserIds.includes(found.uid)) {
+          mentionedUserIds.push(found.uid);
+          mentionedProfiles.push(found);
+        }
+      });
+
+      const postRef = await addDoc(collection(db, path), {
         authorId: user.uid,
         content: newPostContent,
         tags: tags.length > 0 ? tags : [],
+        mentionedUsers: mentionedUserIds,
         likesCount: 0,
         commentsCount: 0,
         favoritesCount: 0,
         createdAt: serverTimestamp(),
       });
+
+      // Send post_mention notifications to tagged users
+      for (const targetUser of mentionedProfiles) {
+        if (targetUser.uid !== user.uid) {
+          try {
+            await addDoc(collection(db, 'notifications'), {
+              type: 'post_mention',
+              fromId: user.uid,
+              toId: targetUser.uid,
+              postId: postRef.id,
+              postSnippet: newPostContent.slice(0, 60),
+              status: 'pending',
+              createdAt: serverTimestamp()
+            });
+          } catch (notifErr) {
+            console.warn('Failed to send mention notification:', notifErr);
+          }
+        }
+      }
+
       setNewPostContent('');
       setIsPosting(false);
     } catch (error) {
@@ -249,21 +378,21 @@ export const TravelBarView: React.FC<{
   }, [filteredPosts, userTrips, profile]);
 
   const displayedPosts = useMemo(() => {
+    let list: BarPost[] = [];
     if (activeTab === 'recommended') {
       if (selectedInterestTag) {
         const tagLower = selectedInterestTag.toLowerCase();
-        return rankedPosts.filter(p => {
+        list = rankedPosts.filter(p => {
           const contentMatch = p.content.toLowerCase().includes(tagLower);
           const tagMatch = p.tags?.some(t => t.toLowerCase() === tagLower);
           const reasonMatch = p.matchedTags?.some(t => t.toLowerCase() === tagLower);
           return contentMatch || tagMatch || reasonMatch;
         });
+      } else {
+        list = rankedPosts;
       }
-      return rankedPosts;
-    }
-
-    if (activeTab === 'hot') {
-      return [...filteredPosts].sort((a, b) => {
+    } else if (activeTab === 'hot') {
+      list = [...filteredPosts].sort((a, b) => {
         const scoreA = computeScore(a);
         const scoreB = computeScore(b);
         if (scoreB !== scoreA) {
@@ -273,15 +402,26 @@ export const TravelBarView: React.FC<{
         const timeB = (b.createdAt as any)?.seconds ? (b.createdAt as any).seconds * 1000 : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         return timeB - timeA;
       });
+    } else {
+      // friends
+      list = [...filteredPosts].sort((a, b) => {
+        const timeA = (a.createdAt as any)?.seconds ? (a.createdAt as any).seconds * 1000 : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = (b.createdAt as any)?.seconds ? (b.createdAt as any).seconds * 1000 : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
     }
 
-    // friends
-    return [...filteredPosts].sort((a, b) => {
-      const timeA = (a.createdAt as any)?.seconds ? (a.createdAt as any).seconds * 1000 : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-      const timeB = (b.createdAt as any)?.seconds ? (b.createdAt as any).seconds * 1000 : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-      return timeB - timeA;
-    });
-  }, [activeTab, rankedPosts, filteredPosts, selectedInterestTag]);
+    // If targetPostId is active, pin targetPost at the very top (index 0) of the list!
+    if (targetPostId) {
+      const target = posts.find(p => p.id === targetPostId) || extraTargetPost;
+      if (target) {
+        const remainder = list.filter(p => p.id !== target.id);
+        return [target, ...remainder];
+      }
+    }
+
+    return list;
+  }, [activeTab, rankedPosts, filteredPosts, selectedInterestTag, targetPostId, posts, extraTargetPost]);
 
   return (
     <div className="flex flex-col min-h-screen bg-apple-gray-50">
@@ -298,25 +438,25 @@ export const TravelBarView: React.FC<{
           </button>
         </div>
         
-        {/* Tabs: 熱門, 推薦, 好友 */}
+        {/* Tabs: 熱門, 推薦, 好友 (記憶使用者最後選擇的分類) */}
         <div className="flex gap-2 bg-apple-gray-100/50 p-1 rounded-2xl w-fit mb-2">
           <button 
             id="tab-travelbar-hot"
-            onClick={() => setActiveTab('hot')}
+            onClick={() => handleTabChange('hot')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'hot' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
             熱門
           </button>
           <button 
             id="tab-travelbar-recommended"
-            onClick={() => setActiveTab('recommended')}
+            onClick={() => handleTabChange('recommended')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'recommended' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
             推薦
           </button>
           <button 
             id="tab-travelbar-friends"
-            onClick={() => setActiveTab('friends')}
+            onClick={() => handleTabChange('friends')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'friends' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
             好友
@@ -441,41 +581,83 @@ export const TravelBarView: React.FC<{
           </div>
         )}
 
-        <AnimatePresence mode="popLayout">
-          {displayedPosts.map((post, idx) => (
-            <motion.div
-              id={`post-${post.id}`}
-              key={post.id}
-              layout
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }}
-              transition={{ duration: 0.2 }}
+        {/* 專屬旅文置頂提示橫幅 (當從外部專屬連結進入時) */}
+        {targetPostId && (
+          <div className="bg-[#E6F5FF] border border-[#B6cada] rounded-2xl p-3 px-4 flex items-center justify-between text-xs text-[#035096] shadow-apple-xs mb-3 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 font-bold min-w-0">
+              <span className="w-6 h-6 rounded-full bg-[#035096] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Send size={12} className="-rotate-45 translate-x-0.5" />
+              </span>
+              <span className="truncate">正在查看專屬分享旅文（已置頂推薦）</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClearTargetPost?.();
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('postId');
+                  url.searchParams.delete('post');
+                  window.history.replaceState({}, '', url.toString());
+                } catch (e) {
+                  // ignore
+                }
+              }}
+              className="ml-2 shrink-0 px-2.5 py-1 rounded-xl bg-white hover:bg-apple-gray-50 text-[#035096] font-bold text-[11px] shadow-2xs border border-[#B6cada] active:scale-95 transition-all cursor-pointer"
             >
-              <SwipeableWrapper
-                leftAction={{ 
-                  ...getActionConfig(gestureSettings.barLeft, post), 
-                  onTrigger: () => handleAction(post, gestureSettings.barLeft) 
-                }}
-                rightAction={{ 
-                  ...getActionConfig(gestureSettings.barRight, post), 
-                  onTrigger: () => handleAction(post, gestureSettings.barRight) 
-                }}
+              瀏覽全部推薦
+            </button>
+          </div>
+        )}
+
+        <AnimatePresence mode="popLayout">
+          {displayedPosts.map((post, idx) => {
+            const isTarget = targetPostId === post.id;
+            return (
+              <motion.div
+                id={`post-${post.id}`}
+                key={post.id}
+                layout
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.2 }}
+                className={isTarget ? "ring-2 ring-[#035096] ring-offset-2 rounded-3xl overflow-hidden shadow-apple-md mb-2" : ""}
               >
-                <BarPostCard 
-                  post={post} 
-                  author={authors[post.authorId]} 
-                  onChatClick={onChatClick} 
-                  onAvatarClick={onAvatarClick} 
-                  onReport={(p) => setReportingPost(p)}
-                  isReported={reportedPostIds.has(post.id)}
-                  rank={activeTab === 'hot' ? idx : undefined}
-                  recommendationReason={activeTab === 'recommended' ? (post as ScoredBarPost).recommendationReason : undefined}
-                  matchedTags={activeTab === 'recommended' ? (post as ScoredBarPost).matchedTags : undefined}
-                />
-              </SwipeableWrapper>
-            </motion.div>
-          ))}
+                {isTarget && (
+                  <div className="bg-[#035096] text-white text-[11px] font-bold px-4 py-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Send size={12} className="-rotate-45" />
+                      <span>專屬分享旅文 • 置頂推薦展示</span>
+                    </div>
+                    <span className="text-[10px] text-[#B6cada] font-medium">可向下滑動瀏覽更多旅吧內容</span>
+                  </div>
+                )}
+                <SwipeableWrapper
+                  leftAction={{ 
+                    ...getActionConfig(gestureSettings.barLeft, post), 
+                    onTrigger: () => handleAction(post, gestureSettings.barLeft) 
+                  }}
+                  rightAction={{ 
+                    ...getActionConfig(gestureSettings.barRight, post), 
+                    onTrigger: () => handleAction(post, gestureSettings.barRight) 
+                  }}
+                >
+                  <BarPostCard 
+                    post={post} 
+                    author={authors[post.authorId]} 
+                    onChatClick={onChatClick} 
+                    onAvatarClick={onAvatarClick} 
+                    onReport={(p) => setReportingPost(p)}
+                    isReported={reportedPostIds.has(post.id)}
+                    rank={activeTab === 'hot' ? idx : undefined}
+                    recommendationReason={activeTab === 'recommended' ? (post as ScoredBarPost).recommendationReason : undefined}
+                    matchedTags={activeTab === 'recommended' ? (post as ScoredBarPost).matchedTags : undefined}
+                  />
+                </SwipeableWrapper>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
         {displayedPosts.length === 0 && (
@@ -516,8 +698,38 @@ export const TravelBarView: React.FC<{
               className="flex-1 w-full bg-transparent text-base font-normal focus:outline-none resize-none leading-relaxed text-[#2B2B2B] placeholder:text-apple-gray-300"
             />
             
-            {/* Quick Tag Pills */}
-            <div className="py-2.5 border-t border-apple-gray-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 mb-[max(env(safe-area-inset-bottom,0px)+1rem,1.5rem)]">
+            {/* Real-time @Mention Autocomplete Bar */}
+            {mentionSuggestions.length > 0 && (
+              <div className="py-2 px-2 border-t border-apple-gray-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 bg-[#E6F5FF]/50 rounded-2xl mb-2">
+                <span className="text-[11px] font-bold text-[#035096] shrink-0 pl-1">快速標註：</span>
+                {mentionSuggestions.map(u => (
+                  <button
+                    key={u.uid}
+                    type="button"
+                    onClick={() => handleSelectMention(u)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-[#035096] hover:bg-[#035096] hover:text-white border border-[#035096]/20 text-xs font-bold transition-all shadow-2xs active:scale-95"
+                  >
+                    <AtSign size={11} strokeWidth={2.5} />
+                    <span>{u.username ? `@${u.username}` : `@${u.displayName}`}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Mention & Quick Tag Pills */}
+            <div className="py-2.5 border-t border-apple-gray-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 mb-[max(env(safe-area-inset-bottom,0px)+1rem,1.5rem)]">
+              {/* @ 標註朋友 Button (Instagram Style) */}
+              <button
+                type="button"
+                onClick={() => setShowMentionPicker(true)}
+                className="shrink-0 px-3 py-1.5 rounded-full bg-[#E6F5FF] text-[#035096] hover:bg-[#035096] hover:text-white text-xs font-bold border border-[#035096]/25 transition-all active:scale-95 flex items-center gap-1.5 shadow-2xs"
+              >
+                <AtSign size={13} strokeWidth={2.5} />
+                <span>@ 標註朋友</span>
+              </button>
+
+              <div className="h-4 w-px bg-apple-gray-200 shrink-0 mx-1" />
+
               <span className="text-[11px] font-bold text-apple-gray-400 shrink-0 flex items-center gap-1">
                 <Tag size={12} />
                 快捷標籤：
@@ -538,6 +750,14 @@ export const TravelBarView: React.FC<{
                 </button>
               ))}
             </div>
+
+            {/* Instagram Style Mention Picker Modal */}
+            <UserMentionPickerModal
+              isOpen={showMentionPicker}
+              onClose={() => setShowMentionPicker(false)}
+              users={allUsers.filter(u => !isUserBlocked(u.uid))}
+              onSelectUser={handleSelectMention}
+            />
           </motion.div>
         )}
       </AnimatePresence>

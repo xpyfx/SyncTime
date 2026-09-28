@@ -131,9 +131,36 @@
         "imageUrl": { "type": "string" },
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" },
+        "favoritesCount": { "type": "number" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "mentionedUsers": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["authorId", "content"]
+    },
+    "BarComment": {
+      "title": "Travel Bar Comment",
+      "description": "Comment on a travel bar post",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "content"]
+    },
+    "BarReply": {
+      "title": "Travel Bar Comment Reply",
+      "description": "Reply to a travel bar comment",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "text": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "text"]
     },
     "ChatRoom": {
       "title": "Chat Room",
@@ -219,6 +246,14 @@
     "/barPosts/{postId}": {
       "schema": "BarPost",
       "description": "Social travel experiences"
+    },
+    "/barPosts/{postId}/comments/{commentId}": {
+      "schema": "BarComment",
+      "description": "Comments on social travel experiences"
+    },
+    "/barPosts/{postId}/comments/{commentId}/replies/{replyId}": {
+      "schema": "BarReply",
+      "description": "Replies to comments on social travel experiences"
     },
     "/friendRequests/{requestId}": {
       "schema": "FriendRequest",

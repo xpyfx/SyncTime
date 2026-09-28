@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Search, UserPlus, Send, ArrowLeft, Users, Plane, Image as ImageIcon, Video, Plus, X, Lock, Play, Camera, ShieldCheck, Download, ChevronLeft, ChevronRight, ArrowUp, FileText, MapPin, Calendar, Wallet, BarChart2, Dices, Sparkles, Navigation, DollarSign, Vote, CheckCircle2, Trash2, Clock, Check, MessageCircle, CreditCard, Tag, Calculator, Folder, Link as LinkIcon, ExternalLink, FileDown, Eye, Menu } from 'lucide-react';
+import { Search, UserPlus, Send, ArrowLeft, Users, Plane, Image as ImageIcon, Video, Plus, X, Lock, Play, Camera, ShieldCheck, Download, ChevronLeft, ChevronRight, ArrowUp, FileText, MapPin, Calendar, Wallet, BarChart2, Dices, Sparkles, Navigation, DollarSign, Vote, CheckCircle2, Trash2, Clock, Check, MessageCircle, CreditCard, Tag, Calculator, Folder, Link as LinkIcon, ExternalLink, FileDown, Eye, Menu, ChevronDown, Edit2, Edit3, Receipt, UserCheck, Coins, User, ArrowRightLeft, Globe, Pencil } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, doc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove, limit, deleteDoc, increment } from 'firebase/firestore';
 import { ChatRoom, Message, UserProfile, PollData, PollOption, LuckyDrawData, ExpenseData, SettlementData, SettlementItem, SettlementExpenseDetail, SettlementPayerTotal, Trip, ItineraryCardData, ItineraryCardDay, ItineraryCardActivity, LocationData, getRoomUnreadCount } from '../types';
@@ -9,6 +9,7 @@ import { GlassSearchInput } from '../components/GlassSearchInput';
 import { GlassSendButton } from '../components/GlassSendButton';
 import { GoogleMapsLocationModal } from '../components/GoogleMapsLocationModal';
 import { GoogleMapsLocationCard } from '../components/GoogleMapsLocationCard';
+import { SharedBarPostCard } from '../components/SharedBarPostCard';
 
 const makeDeletedUserProfile = (uid: string): UserProfile => ({
   uid,
@@ -1372,9 +1373,10 @@ interface ExpenseCardProps {
   expense: ExpenseData;
   msgTime: string;
   isMe: boolean;
+  onEdit?: () => void;
 }
 
-const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, msgTime }) => {
+const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, msgTime, onEdit }) => {
   const isSplit = expense.mode === '分帳';
   const splitCount = expense.splitWithNames?.length || 1;
   const perPersonAmount = Math.round(expense.amountTwd / splitCount);
@@ -1383,13 +1385,27 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ expense, msgTime }) => {
     <div className="w-[280px] sm:w-[320px] bg-[#FFFBEB] rounded-[16px] p-4 border border-[#F59E0B]/30 shadow-apple-xs font-sans flex flex-col relative overflow-hidden text-left">
       {/* Top Header Badge */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 text-[#D97706] font-bold text-xs bg-white/90 px-2.5 py-1 rounded-full border border-[#F59E0B]/20 shadow-2xs">
-          <Users size={15} />
-          <span>⚖️ 團體分帳</span>
+        <div className="flex items-center gap-1.5 text-[#035096] font-bold text-xs bg-white/90 px-2.5 py-1 rounded-full border border-[#B6cada]/40 shadow-2xs">
+          <Users size={14} className="text-[#035096]" />
+          <span>團體分帳</span>
         </div>
-        <span className="text-[11px] font-bold text-[#B45309] bg-[#F59E0B]/10 px-2.5 py-0.5 rounded-full border border-[#F59E0B]/20">
-          💳 {expense.paymentMethod || '現金'}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-[11px] font-bold text-[#035096] bg-white/90 hover:bg-[#B6cada]/20 px-2 py-0.5 rounded-full border border-[#B6cada]/60 flex items-center gap-1 transition-colors cursor-pointer"
+              title="編輯此筆分帳紀錄"
+            >
+              <Edit3 size={11} className="text-[#035096]" />
+              <span>編輯</span>
+            </button>
+          )}
+          <span className="text-[11px] font-bold text-[#035096] bg-[#035096]/10 px-2.5 py-0.5 rounded-full border border-[#B6cada]/40 flex items-center gap-1">
+            <CreditCard size={11} className="text-[#035096]" />
+            <span>{expense.paymentMethod || '現金'}</span>
+          </span>
+        </div>
       </div>
 
       {/* Title / Description */}
@@ -1716,7 +1732,10 @@ const SettlementCard: React.FC<SettlementCardProps> = ({ settlement, msgTime }) 
             </div>
           ))
         ) : (
-          <div className="text-xs font-bold text-[#059669]">🎉 帳目完全平衡，免互相轉帳</div>
+          <div className="text-xs font-bold text-[#059669] flex items-center justify-center gap-1.5">
+            <CheckCircle2 size={14} className="text-[#059669]" />
+            <span>帳目完全平衡，免互相轉帳</span>
+          </div>
         )}
       </div>
 
@@ -2036,7 +2055,13 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
   );
 };
 
-const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (tripId: string) => void, onAvatarClick?: (userId: string) => void }> = ({ roomId, onBack, onBackToTrip, onAvatarClick }) => {
+const ChatView: React.FC<{ 
+  roomId: string, 
+  onBack: () => void, 
+  onBackToTrip?: (tripId: string) => void, 
+  onAvatarClick?: (userId: string) => void,
+  onNavigateToPost?: (postId: string) => void 
+}> = ({ roomId, onBack, onBackToTrip, onAvatarClick, onNavigateToPost }) => {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -2425,87 +2450,20 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
     }
   };
 
-  useEffect(() => {
-    if (showExpenseModal) {
-      if (!expensePayerId && user) {
-        setExpensePayerId(user.uid);
-      }
-      if (room?.participants && expenseSplitWith.length === 0) {
-        setExpenseSplitWith(room.participants);
-      }
-    }
-  }, [showExpenseModal, room?.participants, user]);
+  // Settlement & Expense History modal states
+  const [showSettlementListModal, setShowSettlementListModal] = useState(false);
+  const [settlementViewTab, setSettlementViewTab] = useState<'records' | 'settlement'>('records');
+  const [editingExpenseMessageId, setEditingExpenseMessageId] = useState<string | null>(null);
 
-  const handleCreateAndSendExpense = async () => {
-    if (!expenseTitle.trim()) {
-      alert('請填寫消費內容說明');
-      return;
-    }
-    const rawAmt = parseFloat(expenseAmount);
-    if (isNaN(rawAmt) || rawAmt <= 0) {
-      alert('請輸入金額');
-      return;
-    }
-    const twdAmt = parseFloat(expenseAmountTwd) || Math.round(rawAmt * (CURRENCY_RATES.find(c => c.code === expenseCurrency)?.rate || 1.0));
+  // Split expenses collected from chat messages
+  const splitExpenseMessages = React.useMemo(() => {
+    return messages.filter(m => m.expense && (m.expense.mode === '分帳' || (m.expense.splitWithUserIds && m.expense.splitWithUserIds.length > 0)));
+  }, [messages]);
 
-    // Determine Payer Name
-    const payerUid = expensePayerId || user?.uid || '';
-    const payerProf = participantProfiles[payerUid] || (payerUid === user?.uid ? profile : null);
-    const payerName = payerProf?.displayName || user?.displayName || '成員';
-
-    // Determine Split Names (default to all selected members)
-    const splitWithNames = expenseSplitWith.map(id => {
-      if (id === user?.uid) return profile?.displayName || '我';
-      return participantProfiles[id]?.displayName || '成員';
-    });
-
-    const expensePayload: ExpenseData = {
-      id: 'exp_' + Date.now(),
-      mode: '分帳',
-      date: expenseDate || new Date().toISOString().split('T')[0],
-      payerId: payerUid,
-      payerName,
-      paymentMethod: expensePaymentMethod,
-      category: expenseCategory,
-      title: expenseTitle.trim(),
-      amount: rawAmt,
-      currency: expenseCurrency,
-      amountTwd: twdAmt,
-      splitWithUserIds: expenseSplitWith,
-      splitWithNames: splitWithNames,
-      createdAt: new Date().toISOString()
-    };
-
-    const summaryText = `⚖️ 團體分帳：${expenseTitle} $${rawAmt} ${expenseCurrency} (約 NT$ ${twdAmt}) - 由 ${payerName} 付款，共 ${splitWithNames.length} 人平分`;
-
-    try {
-      await addDoc(collection(db, 'chatRooms', roomId, 'messages'), {
-        senderId: user?.uid,
-        text: summaryText,
-        expense: expensePayload,
-        createdAt: new Date().toISOString()
-      });
-
-      await updateRoomAndNotifyRecipients(roomId, summaryText, user?.uid);
-
-      // Reset
-      setExpenseTitle('');
-      setExpenseAmount('');
-      setExpenseAmountTwd('');
-      setShowExpenseModal(false);
-    } catch (e) {
-      console.error('Failed to send expense:', e);
-    }
-  };
-
-  const handleCalculateAndSendSettlement = async () => {
-    // Collect all expense messages with mode === '分帳'
-    const splitExpenses = messages.filter(m => m.expense && (m.expense.mode === '分帳' || (m.expense.splitWithUserIds && m.expense.splitWithUserIds.length > 0))).map(m => m.expense!);
-
-    if (splitExpenses.length === 0) {
-      alert('目前群組尚無團體分帳紀錄，請先新增團體分帳紀錄後再點擊結算！');
-      return;
-    }
+  // Compute dynamic multi-party settlement breakdown from current messages
+  const settlementSummary = React.useMemo(() => {
+    const splitExpenses = splitExpenseMessages.map(m => m.expense!);
+    if (splitExpenses.length === 0) return null;
 
     // Determine primary non-TWD currency if applicable
     const currencies: string[] = Array.from(new Set(splitExpenses.map(e => e.currency)));
@@ -2520,7 +2478,6 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
     const netOrigMap: Record<string, number> = {};
     let totalAmountTwd = 0;
 
-    // Collect details for receipt
     const details: SettlementExpenseDetail[] = splitExpenses.map(exp => ({
       title: exp.title,
       payerName: exp.payerName || '成員',
@@ -2529,12 +2486,10 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
       amountTwd: exp.amountTwd
     }));
 
-    // Calculate sum per payer
     const payerTotalMap: Record<string, { totalAmount: number; currency: string; totalAmountTwd: number }> = {};
 
     splitExpenses.forEach(exp => {
       totalAmountTwd += exp.amountTwd || 0;
-
       const payerName = exp.payerName || '成員';
       if (!payerTotalMap[payerName]) {
         payerTotalMap[payerName] = { totalAmount: 0, currency: exp.currency, totalAmountTwd: 0 };
@@ -2552,11 +2507,9 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
       const shareTwd = exp.amountTwd / N;
       const shareOrig = exp.amount / N;
 
-      // Payer receives credit
       netTwdMap[payerId] = (netTwdMap[payerId] || 0) + (exp.amountTwd - shareTwd);
       netOrigMap[payerId] = (netOrigMap[payerId] || 0) + (exp.amount - shareOrig);
 
-      // Members owe share
       splitUserIds.forEach(uid => {
         if (uid !== payerId) {
           netTwdMap[uid] = (netTwdMap[uid] || 0) - shareTwd;
@@ -2610,7 +2563,6 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
 
     const cList = creditors.map(c => ({ ...c }));
     const dList = debtors.map(d => ({ ...d }));
-
     const settlements: SettlementItem[] = [];
 
     while (cList.length > 0 && dList.length > 0) {
@@ -2648,7 +2600,7 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
       if (d.amountTwd <= 1) dList.shift();
     }
 
-    const settlementPayload: SettlementData = {
+    const payload: SettlementData = {
       id: 'settle_' + Date.now(),
       totalExpensesCount: splitExpenses.length,
       totalAmountTwd,
@@ -2664,25 +2616,225 @@ const ChatView: React.FC<{ roomId: string, onBack: () => void, onBackToTrip?: (t
       dateStr
     };
 
-    const summaryText = settlements.length > 0
-      ? `🧾 旅程分帳最終結算完成！共 ${splitExpenses.length} 筆分帳，總額 NT$ ${totalAmountTwd.toLocaleString()}。請各成員參考結算明細進行轉帳。`
-      : `🧾 旅程分帳最終結算完成！所有成員帳目完全平衡，不需互轉費用。`;
+    return {
+      payload,
+      totalAmountTwd,
+      perPersonShareTwd,
+      mainCurrency,
+      creditors,
+      debtors,
+      settlements,
+      details,
+      splitExpenses
+    };
+  }, [splitExpenseMessages, room?.participants, participantProfiles, profile, user]);
+
+  useEffect(() => {
+    if (showExpenseModal && !editingExpenseMessageId) {
+      if (!expensePayerId && user) {
+        setExpensePayerId(user.uid);
+      }
+      if (room?.participants && expenseSplitWith.length === 0) {
+        setExpenseSplitWith(room.participants);
+      }
+    }
+  }, [showExpenseModal, editingExpenseMessageId, room?.participants, user]);
+
+  const handleCreateAndSendExpense = async () => {
+    if (!expenseTitle.trim()) {
+      alert('請填寫消費內容說明');
+      return;
+    }
+    const rawAmt = parseFloat(expenseAmount);
+    if (isNaN(rawAmt) || rawAmt <= 0) {
+      alert('請輸入金額');
+      return;
+    }
+    const twdAmt = parseFloat(expenseAmountTwd) || Math.round(rawAmt * (CURRENCY_RATES.find(c => c.code === expenseCurrency)?.rate || 1.0));
+
+    // Determine Payer Name
+    const payerUid = expensePayerId || user?.uid || '';
+    const payerProf = participantProfiles[payerUid] || (payerUid === user?.uid ? profile : null);
+    const payerName = payerProf?.displayName || user?.displayName || '成員';
+
+    // Determine Split Names (default to all selected members)
+    const splitWithNames = expenseSplitWith.map(id => {
+      if (id === user?.uid) return profile?.displayName || '我';
+      return participantProfiles[id]?.displayName || '成員';
+    });
+
+    const expensePayload: ExpenseData = {
+      id: 'exp_' + Date.now(),
+      mode: '分帳',
+      date: expenseDate || new Date().toISOString().split('T')[0],
+      payerId: payerUid,
+      payerName,
+      paymentMethod: expensePaymentMethod,
+      category: expenseCategory,
+      title: expenseTitle.trim(),
+      amount: rawAmt,
+      currency: expenseCurrency,
+      amountTwd: twdAmt,
+      splitWithUserIds: expenseSplitWith,
+      splitWithNames: splitWithNames,
+      createdAt: new Date().toISOString()
+    };
+
+    const summaryText = `團體分帳：${expenseTitle} $${rawAmt} ${expenseCurrency} (約 NT$ ${twdAmt}) - 由 ${payerName} 付款，共 ${splitWithNames.length} 人平分`;
 
     try {
       await addDoc(collection(db, 'chatRooms', roomId, 'messages'), {
         senderId: user?.uid,
         text: summaryText,
-        settlement: settlementPayload,
+        expense: expensePayload,
         createdAt: new Date().toISOString()
       });
 
       await updateRoomAndNotifyRecipients(roomId, summaryText, user?.uid);
 
+      // Reset
+      setExpenseTitle('');
+      setExpenseAmount('');
+      setExpenseAmountTwd('');
+      setShowExpenseModal(false);
+    } catch (e) {
+      console.error('Failed to send expense:', e);
+    }
+  };
+
+  const handleStartEditExpense = (msg: Message) => {
+    if (!msg.expense) return;
+    const exp = msg.expense;
+    setEditingExpenseMessageId(msg.id);
+    setExpenseDate(exp.date || new Date().toISOString().split('T')[0]);
+    setExpensePaymentMethod((exp.paymentMethod as any) || '現金');
+    setExpensePayerId(exp.payerId);
+    setExpenseSplitWith(exp.splitWithUserIds && exp.splitWithUserIds.length > 0 ? exp.splitWithUserIds : (room?.participants || []));
+    setExpenseCategory(exp.category || '飲食');
+    setExpenseTitle(exp.title || '');
+    setExpenseAmount(String(exp.amount || ''));
+    setExpenseCurrency(exp.currency || 'TWD');
+    setExpenseAmountTwd(String(exp.amountTwd || ''));
+    setCustomRateInput(String(CURRENCY_RATES.find(c => c.code === exp.currency)?.rate || 1));
+    setShowSettlementListModal(false);
+    setShowExpenseModal(true);
+  };
+
+  const handleCancelEditExpense = () => {
+    setEditingExpenseMessageId(null);
+    setExpenseTitle('');
+    setExpenseAmount('');
+    setExpenseAmountTwd('');
+    setShowExpenseModal(false);
+    setShowSettlementListModal(true);
+  };
+
+  const handleUpdateExpense = async () => {
+    if (!editingExpenseMessageId || !roomId) return;
+    if (!expenseTitle.trim()) {
+      alert('請填寫消費內容說明');
+      return;
+    }
+    const rawAmt = parseFloat(expenseAmount);
+    if (isNaN(rawAmt) || rawAmt <= 0) {
+      alert('請輸入金額');
+      return;
+    }
+    const twdAmt = parseFloat(expenseAmountTwd) || Math.round(rawAmt * (CURRENCY_RATES.find(c => c.code === expenseCurrency)?.rate || 1.0));
+
+    // Determine Payer Name
+    const payerUid = expensePayerId || user?.uid || '';
+    const payerProf = participantProfiles[payerUid] || (payerUid === user?.uid ? profile : null);
+    const payerName = payerProf?.displayName || user?.displayName || '成員';
+
+    // Determine Split Names
+    const splitWithNames = expenseSplitWith.map(id => {
+      if (id === user?.uid) return profile?.displayName || '我';
+      return participantProfiles[id]?.displayName || '成員';
+    });
+
+    const updatedExpensePayload: ExpenseData = {
+      id: 'exp_' + Date.now(),
+      mode: '分帳',
+      date: expenseDate || new Date().toISOString().split('T')[0],
+      payerId: payerUid,
+      payerName,
+      paymentMethod: expensePaymentMethod,
+      category: expenseCategory,
+      title: expenseTitle.trim(),
+      amount: rawAmt,
+      currency: expenseCurrency,
+      amountTwd: twdAmt,
+      splitWithUserIds: expenseSplitWith,
+      splitWithNames: splitWithNames,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedSummaryText = `團體分帳(已修改)：${expenseTitle} $${rawAmt} ${expenseCurrency} (約 NT$ ${twdAmt}) - 由 ${payerName} 付款，共 ${splitWithNames.length} 人平分`;
+
+    try {
+      await updateDoc(doc(db, 'chatRooms', roomId, 'messages', editingExpenseMessageId), {
+        expense: updatedExpensePayload,
+        text: updatedSummaryText
+      });
+
+      setEditingExpenseMessageId(null);
+      setExpenseTitle('');
+      setExpenseAmount('');
+      setExpenseAmountTwd('');
+      setShowExpenseModal(false);
+      setShowSettlementListModal(true);
+    } catch (e) {
+      console.error('Failed to update expense:', e);
+      alert('修改失敗，請稍後再試');
+    }
+  };
+
+  const handleDeleteExpenseMessage = async (msgId: string) => {
+    if (!roomId) return;
+    if (!window.confirm('確定要刪除這筆分帳紀錄嗎？刪除後將自動從結算中移除。')) return;
+    try {
+      await deleteDoc(doc(db, 'chatRooms', roomId, 'messages', msgId));
+    } catch (e) {
+      console.error('Failed to delete expense message:', e);
+      alert('刪除失敗');
+    }
+  };
+
+  const handleConfirmSendSettlementCard = async () => {
+    if (!roomId || !settlementSummary) return;
+    const splitExpenses = settlementSummary.splitExpenses;
+    const settlements = settlementSummary.settlements;
+    const totalAmountTwd = settlementSummary.totalAmountTwd;
+
+    const summaryText = settlements.length > 0
+      ? `旅程分帳最終結算完成！共 ${splitExpenses.length} 筆分帳，總額 NT$ ${totalAmountTwd.toLocaleString()}。請各成員參考結算明細進行轉帳。`
+      : `旅程分帳最終結算完成！所有成員帳目完全平衡，不需互轉費用。`;
+
+    try {
+      await addDoc(collection(db, 'chatRooms', roomId, 'messages'), {
+        senderId: user?.uid,
+        text: summaryText,
+        settlement: settlementSummary.payload,
+        createdAt: new Date().toISOString()
+      });
+
+      await updateRoomAndNotifyRecipients(roomId, summaryText, user?.uid);
+      setShowSettlementListModal(false);
       setShowExpenseModal(false);
     } catch (e) {
       console.error('Failed to send settlement card:', e);
       alert('結算卡片發送失敗，請稍後再試');
     }
+  };
+
+  const handleCalculateAndSendSettlement = async () => {
+    if (splitExpenseMessages.length === 0) {
+      alert('目前群組尚無團體分帳紀錄，請先新增團體分帳紀錄後再點擊結算！');
+      return;
+    }
+    setSettlementViewTab('records');
+    setShowSettlementListModal(true);
   };
 
   // Enhanced WhatsApp-style Poll States
@@ -3659,6 +3811,7 @@ React.useLayoutEffect(() => {
                       expense={m.expense}
                       msgTime={msgTime}
                       isMe={isMe}
+                      onEdit={() => handleStartEditExpense(m)}
                     />
                   ) : m.settlement ? (
                     <SettlementCard
@@ -3672,6 +3825,17 @@ React.useLayoutEffect(() => {
                       msgTime={msgTime}
                       isMe={isMe}
                       onViewTrip={(tripId) => onBackToTrip?.(tripId)}
+                    />
+                  ) : (m.sharedPost || m.sharedPostId) ? (
+                    <SharedBarPostCard
+                      sharedPost={m.sharedPost}
+                      postId={m.sharedPostId || m.sharedPost?.postId || ''}
+                      msgTime={msgTime}
+                      isMe={isMe}
+                      onViewPost={(postId) => {
+                        onBack();
+                        onNavigateToPost?.(postId);
+                      }}
                     />
                   ) : (m.mediaList?.some(item => item.type === 'file') || (m.text && m.text.startsWith('📄 檔案分享：'))) ? (
                     (() => {
@@ -4232,72 +4396,117 @@ React.useLayoutEffect(() => {
             >
               {/* Header */}
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-apple-gray-100">
-                <div className="flex items-center gap-2 text-[#D97706]">
-                  <Users size={22} className="stroke-[2.2]" />
-                  <h3 className="font-bold text-apple-gray-800 text-base">新增分帳紀錄</h3>
+                <div className="flex items-center gap-2 text-[#035096]">
+                  <Receipt size={22} className="stroke-[2.2]" />
+                  <h3 className="font-bold text-apple-gray-800 text-base">
+                    {editingExpenseMessageId ? '編輯分帳紀錄' : '新增分帳紀錄'}
+                  </h3>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  {/* 【編輯】按鈕 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettlementViewTab('records');
+                      setShowSettlementListModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-[#B6cada]/20 text-[#035096] border border-[#B6cada] font-bold text-xs shadow-2xs hover:bg-[#B6cada]/40 active:scale-95 flex items-center gap-1 transition-all cursor-pointer"
+                    title="查看與修改過去所有分帳細項"
+                  >
+                    <Edit3 size={13} className="text-[#035096]" />
+                    <span>編輯</span>
+                    {splitExpenseMessages.length > 0 && (
+                      <span className="ml-0.5 px-1.5 py-0.2 bg-[#035096] text-white rounded-full text-[10px] font-black">
+                        {splitExpenseMessages.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* 【結算】按鈕 (#035096 #B6cada 搭配) */}
                   <button
                     type="button"
                     onClick={handleCalculateAndSendSettlement}
-                    className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#10B981] to-[#059669] text-white font-extrabold text-xs shadow-xs hover:opacity-95 active:scale-95 flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="一鍵計算這趟旅程的分帳結果並發送結算卡片"
+                    className="px-3.5 py-1.5 rounded-full bg-[#035096] text-white border border-[#B6cada] font-extrabold text-xs shadow-xs hover:bg-[#023e75] active:scale-95 flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="查看過去所有明細並結算這趟旅程的分帳結果"
                   >
-                    <Calculator size={14} className="stroke-[2.5]" />
+                    <Calculator size={13} className="text-[#B6cada] stroke-[2.5]" />
                     <span>結算</span>
                   </button>
 
                   <button 
                     type="button" 
-                    onClick={() => setShowExpenseModal(false)} 
-                    className="w-8 h-8 rounded-full bg-apple-gray-100 flex items-center justify-center text-apple-gray-500 hover:text-apple-gray-800 transition-colors"
+                    onClick={() => {
+                      setShowExpenseModal(false);
+                      setEditingExpenseMessageId(null);
+                    }} 
+                    className="w-8 h-8 rounded-full bg-apple-gray-100 flex items-center justify-center text-apple-gray-500 hover:text-apple-gray-800 transition-colors ml-0.5 cursor-pointer"
                   >
                     <X size={18} />
                   </button>
                 </div>
               </div>
 
+              {/* Editing Mode Banner */}
+              {editingExpenseMessageId && (
+                <div className="mb-4 p-2.5 rounded-2xl bg-[#035096]/10 border border-[#B6cada] flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#035096]">
+                    <Edit3 size={14} className="shrink-0" />
+                    <span>正在修改帳目，調整完畢後點擊下方「儲存並更新」</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditExpense}
+                    className="text-xs text-apple-gray-500 hover:text-apple-gray-800 font-bold underline shrink-0 cursor-pointer ml-2"
+                  >
+                    取消
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-4 mb-5">
-                {/* 1. Date Picker & Payment Method */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-apple-gray-500 block mb-1">
-                      📅 日期 (Date)
+                {/* 1. Date Picker & Payment Method (Fixed overlap with clean responsive grid & min-w-0) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full">
+                  <div className="min-w-0 flex flex-col">
+                    <label className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1.5 mb-1.5">
+                      <Calendar size={13} className="text-[#035096] shrink-0" />
+                      <span>日期 (Date)</span>
                     </label>
                     <input 
                       type="date"
                       value={expenseDate}
                       onChange={e => setExpenseDate(e.target.value)}
-                      className="w-full h-10 bg-apple-gray-50 rounded-xl px-3 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200"
+                      className="w-full min-w-0 max-w-full h-11 bg-apple-gray-50 rounded-xl px-3 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200 focus:border-[#035096] transition-colors box-border"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-apple-gray-500 block mb-1">
-                      💳 付款方式 (Method)
+                  <div className="min-w-0 flex flex-col">
+                    <label className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1.5 mb-1.5">
+                      <CreditCard size={13} className="text-[#035096] shrink-0" />
+                      <span>付款方式 (Method)</span>
                     </label>
                     <select
                       value={expensePaymentMethod}
                       onChange={e => setExpensePaymentMethod(e.target.value as any)}
-                      className="w-full h-10 bg-apple-gray-50 rounded-xl px-2.5 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200"
+                      className="w-full min-w-0 max-w-full h-11 bg-apple-gray-50 rounded-xl px-3 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200 focus:border-[#035096] transition-colors cursor-pointer box-border"
                     >
-                      <option value="現金">💵 現金 (Cash)</option>
-                      <option value="信用卡">💳 信用卡 (Credit Card)</option>
-                      <option value="記帳卡">🏦 記帳卡 (Debit Card)</option>
+                      <option value="現金">現金 (Cash)</option>
+                      <option value="信用卡">信用卡 (Credit Card)</option>
+                      <option value="記帳卡">記帳卡 (Debit Card)</option>
                     </select>
                   </div>
                 </div>
 
                 {/* 2. Who Paid (誰付款) */}
                 <div>
-                  <label className="text-[11px] font-bold text-apple-gray-500 block mb-1">
-                    👤 誰先付款 (Payer)
+                  <label className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1.5 mb-1.5">
+                    <User size={13} className="text-[#035096] shrink-0" />
+                    <span>誰先付款 (Payer)</span>
                   </label>
                   <select
                     value={expensePayerId}
                     onChange={e => setExpensePayerId(e.target.value)}
-                    className="w-full h-10 bg-apple-gray-50 rounded-xl px-3 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200"
+                    className="w-full h-11 bg-apple-gray-50 rounded-xl px-3 text-xs font-bold text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200 focus:border-[#035096] transition-colors cursor-pointer"
                   >
                     {room?.participants?.map(uid => {
                       const prof = participantProfiles[uid] || (uid === user?.uid ? profile : null);
@@ -4311,13 +4520,13 @@ React.useLayoutEffect(() => {
                 </div>
 
                 {/* 3. 跟誰分 (平分成員) */}
-                <div className="bg-[#FEF3C7]/60 rounded-2xl p-3 border border-[#F59E0B]/30">
+                <div className="bg-[#B6cada]/15 rounded-2xl p-3 border border-[#B6cada]/50">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold text-[#B45309] flex items-center gap-1">
-                      <Users size={14} />
+                    <span className="text-[11px] font-bold text-[#035096] flex items-center gap-1">
+                      <Users size={14} className="text-[#035096]" />
                       <span>跟誰分 (平分成員)</span>
                     </span>
-                    <span className="text-[10px] text-apple-gray-500">
+                    <span className="text-[10px] text-apple-gray-500 font-bold">
                       已選 {expenseSplitWith.length} 人
                     </span>
                   </div>
@@ -4351,7 +4560,7 @@ React.useLayoutEffect(() => {
                                 setExpenseSplitWith(prev => prev.filter(id => id !== uid));
                               }
                             }}
-                            className="w-4 h-4 rounded text-[#F59E0B] focus:ring-[#F59E0B]"
+                            className="w-4 h-4 rounded text-[#035096] focus:ring-[#035096]"
                           />
                         </label>
                       );
@@ -4362,13 +4571,14 @@ React.useLayoutEffect(() => {
                 {/* 4. Category Selector (消費類別) + Custom Addition */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-apple-gray-500">
-                      🏷️ 消費類別 (Category)
+                    <label className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1.5">
+                      <Tag size={13} className="text-[#035096] shrink-0" />
+                      <span>消費類別 (Category)</span>
                     </label>
                     <button
                       type="button"
                       onClick={() => setShowAddCustomCat(prev => !prev)}
-                      className="text-[11px] font-bold text-[#D97706] hover:underline flex items-center gap-0.5"
+                      className="text-[11px] font-bold text-[#035096] hover:underline flex items-center gap-0.5 cursor-pointer"
                     >
                       <Plus size={13} />
                       <span>自訂類別 (跨旅程保存)</span>
@@ -4377,7 +4587,7 @@ React.useLayoutEffect(() => {
 
                   {/* Inline custom category input */}
                   {showAddCustomCat && (
-                    <div className="flex items-center gap-2 mb-2 bg-[#FEF3C7] p-2 rounded-xl border border-[#F59E0B]/30">
+                    <div className="flex items-center gap-2 mb-2 bg-[#B6cada]/20 p-2 rounded-xl border border-[#B6cada]">
                       <input 
                         value={newCustomCategoryInput}
                         onChange={e => setNewCustomCategoryInput(e.target.value)}
@@ -4387,7 +4597,7 @@ React.useLayoutEffect(() => {
                       <button
                         type="button"
                         onClick={handleAddCustomCategory}
-                        className="px-3 h-8 rounded-lg bg-[#D97706] text-white font-bold text-xs hover:bg-[#B45309]"
+                        className="px-3 h-8 rounded-lg bg-[#035096] text-white font-bold text-xs hover:bg-[#023e75] cursor-pointer"
                       >
                         儲存
                       </button>
@@ -4401,9 +4611,9 @@ React.useLayoutEffect(() => {
                         key={cat}
                         type="button"
                         onClick={() => setExpenseCategory(cat)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                           expenseCategory === cat
-                            ? 'bg-[#F59E0B] text-white shadow-2xs scale-102'
+                            ? 'bg-[#035096] text-white shadow-2xs scale-102 border border-[#B6cada]/40'
                             : 'bg-white text-apple-gray-600 hover:bg-apple-gray-100 border border-apple-gray-200/80'
                         }`}
                       >
@@ -4415,35 +4625,40 @@ React.useLayoutEffect(() => {
 
                 {/* 5. Item Content / Description */}
                 <div>
-                  <label className="text-[11px] font-bold text-apple-gray-500 block mb-1">
-                    消費內容 (Description)
+                  <label className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1.5 mb-1.5">
+                    <FileText size={13} className="text-[#035096] shrink-0" />
+                    <span>消費內容 (Description)</span>
                   </label>
                   <input 
                     value={expenseTitle}
                     onChange={e => setExpenseTitle(e.target.value)}
                     placeholder="例: 居酒屋晚餐、晴空塔門票、新幹線車票"
-                    className="w-full h-10 bg-apple-gray-50 rounded-xl px-3 text-xs font-medium text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200"
+                    className="w-full h-11 bg-apple-gray-50 rounded-xl px-3 text-xs font-medium text-apple-gray-800 focus:outline-none focus:bg-white border border-apple-gray-200 focus:border-[#035096] transition-colors"
                   />
                 </div>
 
                 {/* 6. Three Amount Boxes (金額、幣別、換算台幣) */}
                 <div className="bg-apple-gray-50 rounded-2xl p-3 border border-apple-gray-200/80 space-y-2">
-                  <div className="text-[11px] font-bold text-apple-gray-600 mb-1 flex items-center justify-between">
-                    <span>金額資訊</span>
+                  <div className="text-[11px] font-bold text-apple-gray-700 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Coins size={13} className="text-[#035096] shrink-0" />
+                      <span>金額資訊</span>
+                    </span>
                     <button
                       type="button"
                       onClick={() => setIsEditingRate(prev => !prev)}
-                      className="text-[10px] text-[#D97706] font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                      className="text-[10px] text-[#035096] font-bold hover:underline cursor-pointer flex items-center gap-0.5"
                       title="點擊自訂匯率"
                     >
-                      <span>按央行匯率換算 (點我進行修改)</span>
+                      <ArrowRightLeft size={11} className="text-[#035096]" />
+                      <span>按央行匯率換算 (點我修改)</span>
                     </button>
                   </div>
 
                   {/* Inline custom rate editor */}
                   {isEditingRate && (
-                    <div className="bg-[#FEF3C7] p-2.5 rounded-xl border border-[#F59E0B]/30 my-1 flex items-center justify-between text-xs animate-fadeIn">
-                      <span className="font-bold text-[#B45309]">自訂 {expenseCurrency} 匯率：</span>
+                    <div className="bg-[#B6cada]/20 p-2.5 rounded-xl border border-[#B6cada] my-1 flex items-center justify-between text-xs animate-fadeIn">
+                      <span className="font-bold text-[#035096]">自訂 {expenseCurrency} 匯率：</span>
                       <div className="flex items-center gap-1.5 font-bold">
                         <span className="text-apple-gray-600 text-[11px]">1 {expenseCurrency} =</span>
                         <input 
@@ -4452,7 +4667,7 @@ React.useLayoutEffect(() => {
                           value={customRateInput}
                           onChange={e => handleCustomRateInputChange(e.target.value)}
                           placeholder="匯率"
-                          className="w-20 h-7 bg-white rounded-lg px-2 text-xs font-black text-[#D97706] border border-[#F59E0B]/40 focus:outline-none focus:ring-1 focus:ring-[#D97706]"
+                          className="w-20 h-7 bg-white rounded-lg px-2 text-xs font-black text-[#035096] border border-[#B6cada] focus:outline-none focus:ring-1 focus:ring-[#035096]"
                         />
                         <span className="text-apple-gray-600 text-[11px]">TWD</span>
                       </div>
@@ -4461,24 +4676,24 @@ React.useLayoutEffect(() => {
 
                   <div className="grid grid-cols-3 gap-2">
                     {/* Box 1: Amount */}
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-bold text-apple-gray-400 block mb-0.5">金額 (Amount)</label>
+                    <div className="col-span-1 min-w-0">
+                      <label className="text-[10px] font-bold text-apple-gray-500 block mb-1 truncate">金額 (Amount)</label>
                       <input 
                         type="number"
                         value={expenseAmount}
                         onChange={e => handleExpenseAmountChange(e.target.value)}
                         placeholder="例: 10000"
-                        className="w-full h-10 bg-white rounded-xl px-2.5 text-xs font-extrabold text-apple-gray-900 focus:outline-none border border-apple-gray-200"
+                        className="w-full h-11 bg-white rounded-xl px-2.5 text-xs font-extrabold text-apple-gray-900 focus:outline-none border border-apple-gray-200 focus:border-[#035096] transition-colors"
                       />
                     </div>
 
                     {/* Box 2: Currency */}
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-bold text-apple-gray-400 block mb-0.5">幣別 (Currency)</label>
+                    <div className="col-span-1 min-w-0">
+                      <label className="text-[10px] font-bold text-apple-gray-500 block mb-1 truncate">幣別 (Currency)</label>
                       <select
                         value={expenseCurrency}
                         onChange={e => handleExpenseCurrencyChange(e.target.value)}
-                        className="w-full h-10 bg-white rounded-xl px-1.5 text-xs font-extrabold text-apple-gray-900 focus:outline-none border border-apple-gray-200"
+                        className="w-full h-11 bg-white rounded-xl px-1.5 text-xs font-extrabold text-apple-gray-900 focus:outline-none border border-apple-gray-200 focus:border-[#035096] transition-colors cursor-pointer"
                       >
                         {CURRENCY_RATES.map(c => (
                           <option key={c.code} value={c.code}>
@@ -4489,14 +4704,14 @@ React.useLayoutEffect(() => {
                     </div>
 
                     {/* Box 3: Converted to TWD */}
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-bold text-apple-gray-400 block mb-0.5">換算台幣 (NTD)</label>
+                    <div className="col-span-1 min-w-0">
+                      <label className="text-[10px] font-bold text-apple-gray-500 block mb-1 truncate">換算台幣 (NTD)</label>
                       <input 
                         type="number"
                         value={expenseAmountTwd}
                         onChange={e => setExpenseAmountTwd(e.target.value)}
                         placeholder="NT$"
-                        className="w-full h-10 bg-[#FFFBEB] rounded-xl px-2.5 text-xs font-black text-[#D97706] focus:outline-none border border-[#F59E0B]/30"
+                        className="w-full h-11 bg-[#035096]/5 rounded-xl px-2.5 text-xs font-black text-[#035096] focus:outline-none border border-[#B6cada]"
                       />
                     </div>
                   </div>
@@ -4511,7 +4726,7 @@ React.useLayoutEffect(() => {
                       <button 
                         type="button" 
                         onClick={() => setIsEditingRate(prev => !prev)} 
-                        className="text-[#D97706] font-bold hover:underline cursor-pointer ml-1"
+                        className="text-[#035096] font-bold hover:underline cursor-pointer ml-1"
                       >
                         (點我修改)
                       </button>
@@ -4520,16 +4735,390 @@ React.useLayoutEffect(() => {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="button"
-                onClick={handleCreateAndSendExpense}
-                disabled={!expenseTitle.trim() || !expenseAmount}
-                className="w-full h-11 rounded-2xl bg-[#F59E0B] text-white font-bold text-sm hover:bg-[#D97706] active:scale-98 disabled:opacity-40 transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Check size={18} />
-                <span>新增並發送分帳卡片</span>
-              </button>
+              {/* Submit Buttons (Thick, tactile, Apple-grade) */}
+              {editingExpenseMessageId ? (
+                <div className="flex gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCancelEditExpense}
+                    className="flex-1 h-14 rounded-2xl bg-apple-gray-100 hover:bg-apple-gray-200 text-apple-gray-700 font-bold text-sm transition-all active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X size={18} />
+                    <span>取消修改</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpdateExpense}
+                    disabled={!expenseTitle.trim() || !expenseAmount}
+                    className="flex-[2] h-14 rounded-2xl bg-[#035096] hover:bg-[#023e75] text-white font-extrabold text-[15px] shadow-md border border-[#B6cada] transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Check size={20} className="stroke-[2.5]" />
+                    <span>儲存並更新帳目</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCreateAndSendExpense}
+                  disabled={!expenseTitle.trim() || !expenseAmount}
+                  className="w-full h-14 py-3.5 px-6 rounded-2xl bg-[#035096] text-white font-extrabold text-[15px] hover:bg-[#023e75] active:scale-[0.98] disabled:opacity-40 transition-all shadow-md flex items-center justify-center gap-2.5 cursor-pointer border border-[#B6cada]/50"
+                >
+                  <Check size={20} className="stroke-[2.5]" />
+                  <span>新增並發送分帳卡片</span>
+                </button>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 5.1 旅程分帳明細與結算 Modal (點選結算或編輯後彈出全部過去帳目明細，點選固定細項即可編輯) */}
+      <AnimatePresence>
+        {showSettlementListModal && (
+          <div className="fixed inset-0 z-[120] flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 bg-black/45 backdrop-blur-xs">
+            <motion.div 
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="bg-white rounded-t-[32px] sm:rounded-3xl max-w-md w-full p-5 shadow-2xl border border-apple-gray-100 max-h-[92vh] overflow-y-auto no-scrollbar relative flex flex-col font-sans"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center mb-3 pb-3 border-b border-apple-gray-100">
+                <div className="flex items-center gap-2 text-[#035096]">
+                  <div className="w-8 h-8 rounded-full bg-[#035096]/10 flex items-center justify-center text-[#035096]">
+                    <Calculator size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-apple-gray-800 text-base">旅程分帳明細與結算</h3>
+                    <p className="text-[11px] text-apple-gray-500 font-medium">
+                      共 {splitExpenseMessages.length} 筆帳目 · 總支出 NT$ {(settlementSummary?.totalAmountTwd || 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => setShowSettlementListModal(false)} 
+                  className="w-8 h-8 rounded-full bg-apple-gray-100 flex items-center justify-center text-apple-gray-500 hover:text-apple-gray-800 transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Tabs Switcher (#035096 #B6cada) */}
+              <div className="flex p-1 bg-apple-gray-100 rounded-2xl mb-3 border border-apple-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setSettlementViewTab('records')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    settlementViewTab === 'records'
+                      ? 'bg-[#035096] text-white shadow-xs'
+                      : 'text-apple-gray-600 hover:text-apple-gray-900'
+                  }`}
+                >
+                  <Receipt size={14} className={settlementViewTab === 'records' ? 'text-[#B6cada]' : ''} />
+                  <span>帳目明細 ({splitExpenseMessages.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettlementViewTab('settlement')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    settlementViewTab === 'settlement'
+                      ? 'bg-[#035096] text-white shadow-xs'
+                      : 'text-apple-gray-600 hover:text-apple-gray-900'
+                  }`}
+                >
+                  <Calculator size={14} className={settlementViewTab === 'settlement' ? 'text-[#B6cada]' : ''} />
+                  <span>結算試算與發送</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Records View (點選固定細項之後，即可編輯內容) */}
+              {settlementViewTab === 'records' && (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="mb-3 px-3 py-2 bg-[#B6cada]/15 rounded-xl border border-[#B6cada]/60 flex items-center gap-2 text-xs text-[#035096] font-bold">
+                    <Edit3 size={14} className="shrink-0 text-[#035096]" />
+                    <span>點選下方任一帳目細項即可直接修改金額、付款人或分帳成員。</span>
+                  </div>
+
+                  {splitExpenseMessages.length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-apple-gray-100 flex items-center justify-center text-apple-gray-400 mb-3">
+                        <Receipt size={28} />
+                      </div>
+                      <p className="text-sm font-bold text-apple-gray-700 mb-1">目前尚未新增任何分帳紀錄</p>
+                      <p className="text-xs text-apple-gray-400 mb-4">在旅途中記錄每筆花費，系統將自動平分與計算最佳還款路徑</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSettlementListModal(false);
+                          setEditingExpenseMessageId(null);
+                          setShowExpenseModal(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-[#035096] text-white font-bold text-xs hover:bg-[#023e75] active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus size={14} />
+                        <span>新增第一筆分帳紀錄</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-0.5 mb-4">
+                      {splitExpenseMessages.map(m => {
+                        const exp = m.expense;
+                        if (!exp) return null;
+                        const splitCount = exp.splitWithNames?.length || 1;
+                        const perShare = Math.round((exp.amountTwd || exp.amount) / splitCount);
+
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => handleStartEditExpense(m)}
+                            className="p-3.5 rounded-2xl bg-apple-gray-50/80 hover:bg-[#035096]/5 border border-apple-gray-200/90 hover:border-[#035096] transition-all cursor-pointer group text-left relative"
+                            title="點選編輯此筆帳目"
+                          >
+                            {/* Card Top Row */}
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-[#035096]/10 text-[#035096] font-bold text-[10px] border border-[#B6cada]/50">
+                                  {exp.category || '消費'}
+                                </span>
+                                <span className="text-[11px] text-apple-gray-400 font-medium">
+                                  {exp.date || '今日'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <span className="flex items-center gap-1 text-[11px] font-bold text-[#035096] bg-[#B6cada]/20 group-hover:bg-[#035096] group-hover:text-white px-2 py-0.5 rounded-md transition-colors">
+                                  <Pencil size={10} />
+                                  <span>點選編輯</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteExpenseMessage(m.id);
+                                  }}
+                                  className="w-6 h-6 rounded-md hover:bg-red-50 text-apple-gray-400 hover:text-red-500 flex items-center justify-center transition-colors ml-1 cursor-pointer"
+                                  title="刪除此筆分帳紀錄"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Title & Amount */}
+                            <div className="flex items-baseline justify-between gap-2 mb-1">
+                              <div className="font-extrabold text-sm text-apple-gray-900 group-hover:text-[#035096] transition-colors break-words">
+                                {exp.title}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-black text-sm text-[#035096]">
+                                  {exp.currency === 'TWD' ? `$ ${exp.amount.toLocaleString()} TWD` : `${exp.currency} ${exp.amount.toLocaleString()}`}
+                                </span>
+                                {exp.currency !== 'TWD' && (
+                                  <span className="block text-[10px] font-bold text-apple-gray-500">
+                                    約 NT$ {exp.amountTwd.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Payer & Split Info */}
+                            <div className="text-[11px] text-apple-gray-600 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1.5 border-t border-apple-gray-200/70">
+                              <span className="flex items-center gap-1 font-semibold">
+                                <User size={11} className="text-[#035096]" />
+                                <span>{exp.payerName} 先付款 ({exp.paymentMethod || '現金'})</span>
+                              </span>
+                              <span className="flex items-center gap-1 text-apple-gray-500">
+                                <Users size={11} className="text-[#035096]" />
+                                <span>{splitCount} 人平分 (每人 NT$ {perShare.toLocaleString()})</span>
+                              </span>
+                            </div>
+
+                            {/* Split with chips */}
+                            {exp.splitWithNames && exp.splitWithNames.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {exp.splitWithNames.map((name, i) => (
+                                  <span key={i} className="text-[10px] font-bold bg-white text-apple-gray-700 px-1.5 py-0.5 rounded-md border border-apple-gray-200">
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Bottom Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2.5 mt-auto pt-2 border-t border-apple-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSettlementListModal(false);
+                        setEditingExpenseMessageId(null);
+                        setShowExpenseModal(true);
+                      }}
+                      className="h-12 rounded-2xl bg-apple-gray-100 hover:bg-apple-gray-200 text-apple-gray-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      <span>新增分帳紀錄</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSettlementViewTab('settlement')}
+                      className="h-12 rounded-2xl bg-[#035096] hover:bg-[#023e75] text-white font-extrabold text-xs shadow-xs border border-[#B6cada] flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer"
+                    >
+                      <Calculator size={15} className="text-[#B6cada]" />
+                      <span>查看結算試算</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Settlement View */}
+              {settlementViewTab === 'settlement' && (
+                <div className="flex-1 flex flex-col min-h-0 space-y-3.5">
+                  {/* Summary Stat Box */}
+                  <div className="bg-[#035096]/10 rounded-2xl p-3.5 border border-[#B6cada] space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-[#035096]">
+                      <span>旅程總支出</span>
+                      <span className="text-base font-black text-[#035096]">
+                        NT$ {(settlementSummary?.totalAmountTwd || 0).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#B6cada]/50 text-xs">
+                      <div>
+                        <span className="text-[10px] text-apple-gray-500 font-medium block">記錄筆數</span>
+                        <span className="font-bold text-apple-gray-800">{splitExpenseMessages.length} 筆團體分帳</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-apple-gray-500 font-medium block">每人平均分攤</span>
+                        <span className="font-bold text-apple-gray-800">
+                          NT$ {(settlementSummary?.perPersonShareTwd || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payer Summary */}
+                  {settlementSummary?.payerTotals && settlementSummary.payerTotals.length > 0 && (
+                    <div className="bg-apple-gray-50 rounded-2xl p-3 border border-apple-gray-200">
+                      <div className="text-[11px] font-bold text-apple-gray-600 mb-2 flex items-center gap-1">
+                        <Coins size={13} className="text-[#035096]" />
+                        <span>成員墊付總計</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {settlementSummary.payerTotals.map((p, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs font-medium bg-white px-2.5 py-1.5 rounded-xl border border-apple-gray-100">
+                            <span className="text-apple-gray-700 font-bold">{p.payerName}</span>
+                            <span className="text-[#035096] font-extrabold">
+                              {p.currency === 'TWD' ? `$ ${p.totalAmount.toLocaleString()} TWD` : `${p.currency} ${p.totalAmount.toLocaleString()} (約 NT$ ${p.totalAmountTwd.toLocaleString()})`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Settlement Transfers (Who pays whom) */}
+                  <div className="bg-white rounded-2xl p-3.5 border border-apple-gray-200 shadow-2xs">
+                    <div className="text-[11px] font-bold text-apple-gray-700 mb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <ArrowRightLeft size={13} className="text-[#035096]" />
+                        <span>最佳轉帳抵銷建議 (多方自動平衡)</span>
+                      </span>
+                      <span className="text-[10px] text-apple-gray-400">
+                        {settlementSummary?.settlements?.length || 0} 筆互轉
+                      </span>
+                    </div>
+
+                    {!settlementSummary?.settlements || settlementSummary.settlements.length === 0 ? (
+                      <div className="py-4 text-center bg-emerald-50 rounded-xl border border-emerald-200">
+                        <CheckCircle2 size={20} className="text-emerald-600 mx-auto mb-1" />
+                        <span className="text-xs font-bold text-emerald-800">各成員帳目完全平衡，免互相轉帳！</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-0.5">
+                        {settlementSummary.settlements.map((s, idx) => (
+                          <div key={idx} className="p-2.5 bg-apple-gray-50 rounded-xl border border-apple-gray-200 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 font-bold text-apple-gray-800">
+                              <span className="w-6 h-6 rounded-full bg-apple-gray-200 text-apple-gray-700 flex items-center justify-center text-[10px]">
+                                {s.fromUserName[0]}
+                              </span>
+                              <span>{s.fromUserName}</span>
+                            </div>
+
+                            <div className="flex flex-col items-center px-2">
+                              <span className="text-[10px] font-black text-[#035096] bg-[#B6cada]/20 px-2 py-0.5 rounded-full border border-[#B6cada]">
+                                應付 NT$ {s.amountTwd.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-apple-gray-400">轉給 →</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 font-bold text-[#035096]">
+                              <span>{s.toUserName}</span>
+                              <span className="w-6 h-6 rounded-full bg-[#035096] text-white flex items-center justify-center text-[10px]">
+                                {s.toUserName[0]}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Included Items with Click-to-Edit notice */}
+                  <div className="bg-apple-gray-50 rounded-2xl p-3 border border-apple-gray-200 text-left">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-apple-gray-700 flex items-center gap-1">
+                        <Receipt size={12} className="text-[#035096]" />
+                        <span>已計入帳目 (點選可修改細項)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSettlementViewTab('records')}
+                        className="text-[10px] font-bold text-[#035096] hover:underline cursor-pointer"
+                      >
+                        切換至完整清單 →
+                      </button>
+                    </div>
+
+                    <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                      {splitExpenseMessages.map(m => (
+                        <div
+                          key={m.id}
+                          onClick={() => handleStartEditExpense(m)}
+                          className="px-2.5 py-1.5 rounded-lg bg-white border border-apple-gray-200/80 hover:border-[#035096] flex items-center justify-between text-xs cursor-pointer group"
+                        >
+                          <span className="truncate font-medium text-apple-gray-800 group-hover:text-[#035096]">
+                            {m.expense?.title} ({m.expense?.payerName}付)
+                          </span>
+                          <span className="font-black text-[#035096] shrink-0 flex items-center gap-1">
+                            <span>${m.expense?.amount.toLocaleString()}</span>
+                            <Edit3 size={11} className="text-[#035096] opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Button: Send Settlement Card */}
+                  <button
+                    type="button"
+                    onClick={handleConfirmSendSettlementCard}
+                    disabled={splitExpenseMessages.length === 0}
+                    className="w-full h-14 rounded-2xl bg-[#035096] hover:bg-[#023e75] text-white font-extrabold text-[15px] shadow-md border border-[#B6cada] flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 cursor-pointer"
+                  >
+                    <Send size={18} />
+                    <span>確認並發送結算單據至聊天室</span>
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
@@ -5535,7 +6124,12 @@ React.useLayoutEffect(() => {
   );
 };
 
-export const ChatPage: React.FC<{ initialRoomId: string | null, onAvatarClick: (userId: string) => void, onBackToTrip?: (tripId: string) => void }> = ({ initialRoomId, onAvatarClick, onBackToTrip }) => {
+export const ChatPage: React.FC<{ 
+  initialRoomId: string | null, 
+  onAvatarClick: (userId: string) => void, 
+  onBackToTrip?: (tripId: string) => void,
+  onNavigateToPost?: (postId: string) => void 
+}> = ({ initialRoomId, onAvatarClick, onBackToTrip, onNavigateToPost }) => {
   const { user, profile, isUserBlocked } = useAuth();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId);
@@ -5978,6 +6572,7 @@ export const ChatPage: React.FC<{ initialRoomId: string | null, onAvatarClick: (
                  setSelectedRoomId(null);
                  onBackToTrip?.(tid);
                }}
+               onNavigateToPost={onNavigateToPost}
              />
           </motion.div>
         )}

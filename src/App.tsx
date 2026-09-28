@@ -24,7 +24,27 @@ import { getRoomUnreadCount, ChatRoom } from './types';
 const AppContent = () => {
   const { user, profile, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
+  
+  // Persistent category & tab states (記憶使用者最後選擇的分類與主分頁)
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pId = params.get('postId') || params.get('post');
+      const tabParam = params.get('tab');
+      if (pId) return 'bar';
+      if (tabParam && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)) {
+        return tabParam;
+      }
+      const saved = localStorage.getItem('synctime_last_main_tab');
+      if (saved && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(saved)) {
+        return saved;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'home';
+  });
+
   const [selectedChatRoomId, setSelectedChatRoomId] = useState<string | null>(null);
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -34,7 +54,72 @@ const AppContent = () => {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [viewingUserPostsId, setViewingUserPostsId] = useState<string | null>(null);
-  const [travelBarTab, setTravelBarTab] = useState<'hot' | 'recommended' | 'friends'>('hot');
+
+  // 記憶旅吧使用者最後選擇的分類（熱門、推薦、好友）
+  const [travelBarTab, setTravelBarTab] = useState<'hot' | 'recommended' | 'friends'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pId = params.get('postId') || params.get('post');
+      if (pId) return 'recommended';
+      const saved = localStorage.getItem('synctime_travelbar_active_tab') as 'hot' | 'recommended' | 'friends' | null;
+      if (saved && ['hot', 'recommended', 'friends'].includes(saved)) {
+        return saved;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'recommended';
+  });
+
+  // 外部專屬連結傳入的旅文 ID
+  const [targetPostId, setTargetPostId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('postId') || params.get('post') || null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  // 持久化記錄主分頁與旅吧分頁
+  useEffect(() => {
+    try {
+      localStorage.setItem('synctime_last_main_tab', activeTab);
+    } catch (e) {
+      // ignore
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('synctime_travelbar_active_tab', travelBarTab);
+    } catch (e) {
+      // ignore
+    }
+  }, [travelBarTab]);
+
+  // 監聽外部導航與歷史紀錄 URL 變化 (例如專屬旅文分享連結點擊)
+  useEffect(() => {
+    const handleUrlSync = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const pId = params.get('postId') || params.get('post');
+        const tabParam = params.get('tab');
+        if (pId) {
+          setTargetPostId(pId);
+          setTravelBarTab('recommended');
+          setActiveTab('bar');
+        } else if (tabParam && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)) {
+          setActiveTab(tabParam);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlSync);
+    return () => window.removeEventListener('popstate', handleUrlSync);
+  }, []);
 
   // Listen for unread chat messages & non-chat notifications
   useEffect(() => {
@@ -259,8 +344,28 @@ const AppContent = () => {
       );
       case 'bar': return (
         <TravelBarView 
-          key={travelBarTab}
+          key={targetPostId ? `bar-${targetPostId}` : travelBarTab}
           initialTab={travelBarTab}
+          targetPostId={targetPostId}
+          onClearTargetPost={() => {
+            setTargetPostId(null);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('postId');
+              url.searchParams.delete('post');
+              window.history.replaceState({}, '', url.toString());
+            } catch (e) {
+              // ignore
+            }
+          }}
+          onTabChange={(tab) => {
+            setTravelBarTab(tab);
+            try {
+              localStorage.setItem('synctime_travelbar_active_tab', tab);
+            } catch (e) {
+              // ignore
+            }
+          }}
           onChatClick={handleOpenChat} 
           onAvatarClick={setSelectedUserId} 
         />
@@ -274,6 +379,12 @@ const AppContent = () => {
             setSelectedTripId(tid);
             setSelectedChatRoomId(null);
           }}
+          onNavigateToPost={(postId) => {
+            setSelectedChatRoomId(null);
+            setTargetPostId(postId);
+            setTravelBarTab('recommended');
+            setActiveTab('bar');
+          }}
         />
       );
       case 'notifications': return (
@@ -281,6 +392,11 @@ const AppContent = () => {
           onTripClick={setSelectedTripId} 
           onUserClick={setSelectedUserId} 
           onChatClick={handleOpenChat}
+          onPostClick={(postId) => {
+            setTargetPostId(postId);
+            setTravelBarTab('recommended');
+            setActiveTab('bar');
+          }}
         />
       );
       case 'profile': return (

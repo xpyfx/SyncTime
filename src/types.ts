@@ -153,6 +153,9 @@ export type NotificationType =
   | 'post_like'
   | 'post_comment'
   | 'comment_like'
+  | 'comment_reply'
+  | 'post_mention'
+  | 'comment_mention'
   | 'trip_published'
   | 'trip_comment'
   | 'trip_itinerary_updated';
@@ -188,6 +191,25 @@ export interface CommentReply {
   createdAt: string;
 }
 
+export interface BarCommentReply {
+  id: string;
+  authorId: string;
+  text: string;
+  createdAt: string;
+  likesCount?: number;
+  replyToAuthorId?: string;
+  replyToAuthorName?: string;
+}
+
+export interface BarComment {
+  id: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  likesCount?: number;
+  repliesCount?: number;
+}
+
 export interface BarPost {
   id: string;
   authorId: string;
@@ -198,6 +220,7 @@ export interface BarPost {
   commentsCount?: number;
   favoritesCount?: number;
   tags?: string[];
+  mentionedUsers?: string[];
   createdAt: string;
 }
 
@@ -356,11 +379,26 @@ export interface LocationData {
   types?: string[];
 }
 
+export interface SharedBarPostCardData {
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorUsername?: string;
+  authorAvatar?: string;
+  content: string;
+  imageUrl?: string;
+  images?: string[];
+  likesCount?: number;
+  commentsCount?: number;
+  createdAt?: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
   text: string;
   sharedPostId?: string;
+  sharedPost?: SharedBarPostCardData;
   createdAt: string;
   mediaList?: { type: 'image' | 'video' | 'file', url: string; name?: string; size?: string }[];
   poll?: PollData;

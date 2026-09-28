@@ -1,13 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { ThumbsUp, Bookmark, MessageCircle, Send, MoreHorizontal, Trash2, Edit2, ShieldAlert, ArrowUp, Check, Flame, Sparkles, Tag } from 'lucide-react';
-import { BarPost, UserProfile } from '../types';
+import { 
+  ThumbsUp, 
+  Bookmark, 
+  MessageCircle, 
+  Send, 
+  MoreHorizontal, 
+  Trash2, 
+  Edit2, 
+  ShieldAlert, 
+  Check, 
+  Flame, 
+  Sparkles, 
+  Heart,
+  CornerDownRight,
+  Reply,
+  X
+} from 'lucide-react';
+import { BarPost, UserProfile, BarComment, BarCommentReply } from '../types';
 import { GlassSendButton } from './GlassSendButton';
 import { motion, AnimatePresence } from 'motion/react';
 import { getOrCreateChatRoom } from '../lib/chatUtils';
 import { useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, deleteDoc, updateDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, getDoc, increment } from 'firebase/firestore';
+import { 
+  doc, 
+  deleteDoc, 
+  updateDoc, 
+  setDoc, 
+  onSnapshot, 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  query, 
+  orderBy, 
+  getDoc, 
+  getDocs,
+  where,
+  increment 
+} from 'firebase/firestore';
 import { ReportModal } from './ReportModal';
+import { FormattedPostText } from './FormattedPostText';
+import { InAppBrowserModal } from './InAppBrowserModal';
+import { ShareBarPostModal } from './ShareBarPostModal';
 
 interface BarPostCardProps {
   post: BarPost;
@@ -15,18 +49,407 @@ interface BarPostCardProps {
   onChatClick?: (roomId: string) => void;
   onAvatarClick?: (uid: string) => void;
   onReport?: (post: BarPost) => void;
+  onShareClick?: (post: BarPost) => void;
   isReported?: boolean;
   rank?: number;
   recommendationReason?: string;
   matchedTags?: string[];
 }
 
-interface BarComment {
-  id: string;
-  authorId: string;
-  content: string;
-  createdAt: string;
+interface BarCommentItemProps {
+  postId: string;
+  postAuthorId: string;
+  comment: BarComment;
+  commentAuthor?: UserProfile;
+  onAvatarClick?: (uid: string) => void;
+  onLinkClick: (url: string) => void;
+  onMentionClick: (username: string) => void;
 }
+
+const BarCommentItem: React.FC<BarCommentItemProps> = ({
+  postId,
+  postAuthorId,
+  comment,
+  commentAuthor,
+  onAvatarClick,
+  onLinkClick,
+  onMentionClick
+}) => {
+  const { user } = useAuth();
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isPostingReply, setIsPostingReply] = useState(false);
+  const [replies, setReplies] = useState<BarCommentReply[]>([]);
+  const [replyAuthors, setReplyAuthors] = useState<Record<string, UserProfile>>({});
+  const [likedReplyIds, setLikedReplyIds] = useState<Set<string>>(new Set());
+
+  // Real-time like status for this comment
+  useEffect(() => {
+    if (!user) return;
+    const unsubLike = onSnapshot(
+      doc(db, 'barPosts', postId, 'comments', comment.id, 'likes', user.uid),
+      s => setIsLiked(s.exists())
+    );
+    return () => unsubLike();
+  }, [postId, comment.id, user]);
+
+  // Sync likesCount from comment prop updates
+  useEffect(() => {
+    if (typeof comment.likesCount === 'number') {
+      setLikesCount(comment.likesCount);
+    }
+  }, [comment.likesCount]);
+
+  // Real-time listener for replies
+  useEffect(() => {
+    const q = query(
+      collection(db, 'barPosts', postId, 'comments', comment.id, 'replies'),
+      orderBy('createdAt', 'asc')
+    );
+    const unsubReplies = onSnapshot(q, async snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as BarCommentReply));
+      setReplies(data);
+
+      // Fetch reply authors
+      const newAuthors = { ...replyAuthors };
+      for (const r of data) {
+        if (!newAuthors[r.authorId]) {
+          try {
+            const uS = await getDoc(doc(db, 'users', r.authorId));
+            if (uS.exists()) {
+              newAuthors[r.authorId] = uS.data() as UserProfile;
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      }
+      setReplyAuthors(newAuthors);
+    });
+
+    return () => unsubReplies();
+  }, [postId, comment.id]);
+
+  // Toggle Comment Like
+  const handleToggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    const likeDoc = doc(db, 'barPosts', postId, 'comments', comment.id, 'likes', user.uid);
+    const commentRef = doc(db, 'barPosts', postId, 'comments', comment.id);
+
+    const newIsLiked = !isLiked;
+    setIsLiked(newIsLiked);
+    setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+
+    try {
+      if (newIsLiked) {
+        await setDoc(likeDoc, { createdAt: serverTimestamp() });
+        await updateDoc(commentRef, { likesCount: increment(1) });
+        // Send notification to comment author if not self
+        if (comment.authorId && comment.authorId !== user.uid) {
+          try {
+            await addDoc(collection(db, 'notifications'), {
+              type: 'comment_like',
+              fromId: user.uid,
+              toId: comment.authorId,
+              postId,
+              commentText: comment.content?.slice(0, 60),
+              status: 'pending',
+              createdAt: serverTimestamp()
+            });
+          } catch (notifErr) {
+            console.warn('Failed to send comment_like notification:', notifErr);
+          }
+        }
+      } else {
+        await deleteDoc(likeDoc);
+        await updateDoc(commentRef, { likesCount: increment(-1) });
+      }
+    } catch (err) {
+      console.error('Error toggling comment like:', err);
+      // Revert optimistic update
+      setIsLiked(!newIsLiked);
+      setLikesCount(prev => !newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+    }
+  };
+
+  // Post Reply
+  const handlePostReply = async () => {
+    if (!replyText.trim() || !user || isPostingReply) return;
+    const replyContent = replyText.trim();
+    setIsPostingReply(true);
+
+    try {
+      await addDoc(collection(db, 'barPosts', postId, 'comments', comment.id, 'replies'), {
+        authorId: user.uid,
+        text: replyContent,
+        replyToAuthorId: comment.authorId,
+        replyToAuthorName: commentAuthor?.displayName || '用戶',
+        likesCount: 0,
+        createdAt: new Date().toISOString()
+      });
+
+      // Update parent comment repliesCount
+      await updateDoc(doc(db, 'barPosts', postId, 'comments', comment.id), {
+        repliesCount: increment(1)
+      }).catch(() => {});
+
+      // Increment overall post commentsCount
+      await updateDoc(doc(db, 'barPosts', postId), {
+        commentsCount: increment(1)
+      }).catch(() => {});
+
+      // Send notification to comment author if not self
+      if (comment.authorId && comment.authorId !== user.uid) {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            type: 'comment_reply',
+            fromId: user.uid,
+            toId: comment.authorId,
+            postId,
+            commentText: replyContent.slice(0, 80),
+            status: 'pending',
+            createdAt: serverTimestamp()
+          });
+        } catch (notifErr) {
+          console.warn('Failed to send comment_reply notification:', notifErr);
+        }
+      }
+
+      setReplyText('');
+      setShowReplyInput(false);
+    } catch (e) {
+      console.error('Failed to post reply:', e);
+    } finally {
+      setIsPostingReply(false);
+    }
+  };
+
+  // Toggle Reply Like
+  const handleToggleReplyLike = async (reply: BarCommentReply) => {
+    if (!user) return;
+    const likeDoc = doc(db, 'barPosts', postId, 'comments', comment.id, 'replies', reply.id, 'likes', user.uid);
+    const replyRef = doc(db, 'barPosts', postId, 'comments', comment.id, 'replies', reply.id);
+
+    const isCurrentlyLiked = likedReplyIds.has(reply.id);
+    setLikedReplyIds(prev => {
+      const next = new Set(prev);
+      if (isCurrentlyLiked) next.delete(reply.id);
+      else next.add(reply.id);
+      return next;
+    });
+
+    try {
+      if (!isCurrentlyLiked) {
+        await setDoc(likeDoc, { createdAt: serverTimestamp() });
+        await updateDoc(replyRef, { likesCount: increment(1) });
+      } else {
+        await deleteDoc(likeDoc);
+        await updateDoc(replyRef, { likesCount: increment(-1) });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Top Comment Body */}
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => onAvatarClick?.(comment.authorId)}
+          className="w-7 h-7 rounded-full bg-apple-gray-100 flex-shrink-0 overflow-hidden cursor-pointer hover:opacity-85 active:scale-95 transition-all outline-none border border-apple-gray-200/50 shadow-apple-xs mt-0.5"
+        >
+          {commentAuthor?.avatarUrl ? (
+            <img src={commentAuthor.avatarUrl} alt={commentAuthor.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[10px] text-apple-gray-400 font-bold">
+              {commentAuthor?.displayName?.[0] || '?'}
+            </div>
+          )}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="bg-apple-gray-50/90 rounded-2xl px-3.5 py-2.5 border border-apple-gray-100/80">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <button
+                type="button"
+                onClick={() => onAvatarClick?.(comment.authorId)}
+                className="font-bold text-[11px] text-apple-gray-900 text-left hover:text-[#035096] transition-colors cursor-pointer outline-none truncate"
+              >
+                {commentAuthor?.displayName || '用戶'}
+              </button>
+              <span className="text-[9px] text-apple-gray-400 font-medium shrink-0">
+                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : '剛剛'}
+              </span>
+            </div>
+
+            {/* Comment Text with URL & @Mention parsing */}
+            <div className="text-[12px] leading-relaxed text-apple-gray-700">
+              <FormattedPostText 
+                content={comment.content} 
+                className="text-[12px] leading-relaxed text-apple-gray-700 font-normal"
+                onLinkClick={onLinkClick}
+                onMentionClick={onMentionClick}
+              />
+            </div>
+          </div>
+
+          {/* Comment Action Buttons (Like & Reply) */}
+          <div className="flex items-center gap-4 px-2 pt-1 text-[11px] text-apple-gray-400">
+            {/* Like Comment Button */}
+            <button
+              type="button"
+              onClick={handleToggleLike}
+              className={`flex items-center gap-1 font-semibold transition-all active:scale-90 ${
+                isLiked ? 'text-rose-500 font-bold' : 'hover:text-rose-500 text-apple-gray-400'
+              }`}
+            >
+              <Heart size={12} fill={isLiked ? "currentColor" : "none"} strokeWidth={2.2} />
+              <span>{likesCount > 0 ? `${likesCount} 讚` : '讚'}</span>
+            </button>
+
+            {/* Reply Button */}
+            <button
+              type="button"
+              onClick={() => setShowReplyInput(!showReplyInput)}
+              className="flex items-center gap-1 font-semibold hover:text-[#035096] text-apple-gray-400 active:scale-95 transition-all"
+            >
+              <Reply size={12} strokeWidth={2.2} />
+              <span>回覆</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Nested Replies List */}
+      {replies.length > 0 && (
+        <div className="ml-9 space-y-2.5 pt-1 pl-3 border-l-2 border-apple-gray-100">
+          {replies.map(r => {
+            const replyAuthor = replyAuthors[r.authorId];
+            const isReplyLiked = likedReplyIds.has(r.id);
+            const rLikesCount = (r.likesCount || 0) + (isReplyLiked ? 1 : 0);
+
+            return (
+              <div key={r.id} className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onAvatarClick?.(r.authorId)}
+                  className="w-6 h-6 rounded-full bg-apple-gray-100 flex-shrink-0 overflow-hidden cursor-pointer hover:opacity-80 active:scale-95 transition-all outline-none border border-apple-gray-200/50 mt-0.5"
+                >
+                  {replyAuthor?.avatarUrl ? (
+                    <img src={replyAuthor.avatarUrl} alt={replyAuthor.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[9px] text-apple-gray-400 font-bold">
+                      {replyAuthor?.displayName?.[0] || '?'}
+                    </div>
+                  )}
+                </button>
+
+                <div className="flex-1 min-w-0">
+                  <div className="bg-white rounded-2xl px-3 py-2 border border-apple-gray-100 shadow-2xs">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <button
+                          type="button"
+                          onClick={() => onAvatarClick?.(r.authorId)}
+                          className="font-bold text-[10px] text-apple-gray-800 hover:text-[#035096] transition-colors truncate"
+                        >
+                          {replyAuthor?.displayName || '用戶'}
+                        </button>
+                        {r.replyToAuthorName && (
+                          <span className="text-[9px] text-[#035096] font-medium shrink-0">
+                            回覆 @{r.replyToAuthorName}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[8.5px] text-apple-gray-300 shrink-0">
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '剛剛'}
+                      </span>
+                    </div>
+
+                    <div className="text-[11.5px] leading-relaxed text-apple-gray-700">
+                      <FormattedPostText
+                        content={r.text}
+                        className="text-[11.5px] leading-relaxed text-apple-gray-700 font-normal"
+                        onLinkClick={onLinkClick}
+                        onMentionClick={onMentionClick}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reply Action */}
+                  <div className="flex items-center gap-3 px-2 pt-0.5 text-[10px] text-apple-gray-400">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleReplyLike(r)}
+                      className={`flex items-center gap-1 font-semibold transition-all active:scale-90 ${
+                        isReplyLiked ? 'text-rose-500 font-bold' : 'hover:text-rose-500 text-apple-gray-400'
+                      }`}
+                    >
+                      <Heart size={10} fill={isReplyLiked ? "currentColor" : "none"} />
+                      <span>{rLikesCount > 0 ? `${rLikesCount} 讚` : '讚'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Reply Input Box */}
+      <AnimatePresence>
+        {showReplyInput && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="ml-9 pt-1.5 overflow-hidden"
+          >
+            <div className="flex items-center gap-1.5 p-1 bg-apple-gray-50 rounded-full border border-apple-gray-200/80 shadow-2xs">
+              <input
+                autoFocus
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handlePostReply();
+                  }
+                }}
+                placeholder={`回覆 @${commentAuthor?.displayName || '用戶'}...`}
+                className="flex-1 bg-transparent px-3 text-xs focus:outline-none text-apple-gray-800 placeholder:text-apple-gray-400 min-w-0"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReplyInput(false);
+                  setReplyText('');
+                }}
+                className="p-1 rounded-full text-apple-gray-400 hover:text-apple-gray-600 transition-colors"
+                title="取消回覆"
+              >
+                <X size={14} />
+              </button>
+              <GlassSendButton
+                type="button"
+                onClick={handlePostReply}
+                disabled={!replyText.trim() || isPostingReply}
+                isSending={isPostingReply}
+                title="發送回覆"
+                size="sm"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export const BarPostCard: React.FC<BarPostCardProps> = ({ 
   post, 
@@ -34,6 +457,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   onChatClick, 
   onAvatarClick, 
   onReport,
+  onShareClick,
   isReported: propIsReported = false,
   rank,
   recommendationReason,
@@ -43,6 +467,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [localReported, setLocalReported] = useState(false);
   const isReported = propIsReported || localReported;
   const [editedContent, setEditedContent] = useState(post.content);
@@ -53,11 +478,15 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   const lastPropLikes = React.useRef(post.likesCount);
   const lastPropFavs = React.useRef(post.favoritesCount);
 
+  // Comments state
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<BarComment[]>([]);
   const [commentAuthors, setCommentAuthors] = useState<Record<string, UserProfile>>({});
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+
+  // In-App Browser URL state
+  const [browserUrl, setBrowserUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (post.likesCount !== lastPropLikes.current) {
@@ -95,8 +524,12 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
         const newAuthors = { ...commentAuthors };
         for (const c of data) {
           if (!newAuthors[c.authorId]) {
-            const uS = await getDoc(doc(db, 'users', c.authorId));
-            if (uS.exists()) newAuthors[c.authorId] = uS.data() as UserProfile;
+            try {
+              const uS = await getDoc(doc(db, 'users', c.authorId));
+              if (uS.exists()) newAuthors[c.authorId] = uS.data() as UserProfile;
+            } catch (err) {
+              console.warn(err);
+            }
           }
         }
         setCommentAuthors(newAuthors);
@@ -186,6 +619,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       await addDoc(collection(db, 'barPosts', post.id, 'comments'), {
         authorId: user.uid,
         content: commentContent,
+        likesCount: 0,
+        repliesCount: 0,
         createdAt: new Date().toISOString()
       });
       await updateDoc(doc(db, 'barPosts', post.id), {
@@ -214,6 +649,15 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       console.error(e);
     } finally {
       setIsPostingComment(false);
+    }
+  };
+
+  const handleShareClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShareClick) {
+      onShareClick(post);
+    } else {
+      setShowShareModal(true);
     }
   };
 
@@ -255,6 +699,32 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     }
   };
 
+  // Resolve @mention click to user profile
+  const handleMentionClick = async (username: string) => {
+    const cleanUsername = username.replace(/^@/, '').trim().toLowerCase();
+    if (!cleanUsername) return;
+
+    try {
+      // 1. Search by username field
+      const q = query(collection(db, 'users'), where('username', '==', cleanUsername));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        onAvatarClick?.(snap.docs[0].id);
+        return;
+      }
+
+      // 2. Search by displayName fallback
+      const qDisplay = query(collection(db, 'users'), where('displayName', '==', username.replace(/^@/, '').trim()));
+      const snapDisplay = await getDocs(qDisplay);
+      if (!snapDisplay.empty) {
+        onAvatarClick?.(snapDisplay.docs[0].id);
+        return;
+      }
+    } catch (err) {
+      console.warn('Error resolving mentioned user:', err);
+    }
+  };
+
   const isDeletedAuthor = !author || author.isDeleted;
   const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
 
@@ -279,18 +749,18 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 space-y-2.5">
+        <div className="flex-1 space-y-2.5 min-w-0">
           <div className="flex items-center justify-between">
-            <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group" onClick={() => onAvatarClick?.(post.authorId)}>
-               <span className="font-bold text-sm tracking-tight group-hover:underline">
+            <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group min-w-0" onClick={() => onAvatarClick?.(post.authorId)}>
+               <span className="font-bold text-sm tracking-tight group-hover:underline truncate">
                  {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
                </span>
-               <span className="text-[10px] text-apple-gray-300 font-medium">
+               <span className="text-[10px] text-apple-gray-300 font-medium truncate">
                  {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
                </span>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {rank !== undefined && rank < 10 && (
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
                   rank === 0
@@ -441,9 +911,16 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             </div>
           ) : (
             <div className="space-y-1.5">
-              <p className="text-[15px] leading-relaxed font-normal text-apple-gray-600 whitespace-pre-wrap">
-                {post.content}
-              </p>
+              {/* Formatted Post Content with In-App Browser Link Triggers and @Mentions */}
+              <div className="text-[15px] leading-relaxed font-normal text-apple-gray-600">
+                <FormattedPostText
+                  content={post.content}
+                  className="text-[15px] leading-relaxed font-normal text-apple-gray-700"
+                  onLinkClick={(url) => setBrowserUrl(url)}
+                  onMentionClick={handleMentionClick}
+                />
+              </div>
+
               {Array.isArray(post.tags) && post.tags.length > 0 && !recommendationReason && (
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   {post.tags.map(t => (
@@ -485,8 +962,10 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               {favoritesCount > 0 && <span className="text-[11px] font-bold">{favoritesCount}</span>}
             </button>
             <button 
-              onClick={handleChat}
-              className="flex items-center gap-1.5 active:scale-90 transition-transform hover:text-apple-blue"
+              type="button"
+              onClick={handleShareClick}
+              className="flex items-center gap-1.5 active:scale-90 transition-transform hover:text-[#035096]"
+              title="分享這篇旅文至聊天室或複製專屬連結"
             >
               <Send size={20} strokeWidth={2} />
             </button>
@@ -513,7 +992,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                       }
                     }}
                     placeholder="發表留言..."
-                    className="flex-1 h-10 bg-apple-gray-50 rounded-full px-4 text-xs focus:outline-none ring-1 ring-inset ring-apple-gray-100"
+                    className="flex-1 h-10 bg-apple-gray-50 rounded-full px-4 text-xs focus:outline-none ring-1 ring-inset ring-apple-gray-100 text-apple-gray-800 placeholder:text-apple-gray-400"
                   />
                   <GlassSendButton
                     type="button"
@@ -525,38 +1004,26 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                   />
                 </div>
 
-                {/* Comment List */}
-                <div className="space-y-4 max-h-60 overflow-y-auto no-scrollbar pb-2">
-                  {comments.map(c => (
-                    <div key={c.id} className="flex gap-2">
-                      <button 
-                        type="button"
-                        onClick={() => onAvatarClick?.(c.authorId)}
-                        className="w-7 h-7 rounded-full bg-apple-gray-50 flex-shrink-0 overflow-hidden cursor-pointer hover:opacity-80 active:scale-95 transition-all outline-none"
-                      >
-                        {commentAuthors[c.authorId]?.avatarUrl ? (
-                          <img src={commentAuthors[c.authorId].avatarUrl} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[10px] text-apple-gray-200 font-bold lowercase">
-                             {commentAuthors[c.authorId]?.displayName?.[0] || '?'}
-                          </div>
-                        )}
-                      </button>
-                      <div className="flex-1 bg-apple-gray-50 rounded-2xl px-3 py-2">
-                        <div className="flex items-center justify-between">
-                          <button 
-                            type="button" 
-                            onClick={() => onAvatarClick?.(c.authorId)}
-                            className="font-bold text-[10px] text-left hover:text-apple-blue transition-colors cursor-pointer outline-none"
-                          >
-                            {commentAuthors[c.authorId]?.displayName || '用戶'}
-                          </button>
-                          <span className="text-[8px] text-apple-gray-300">{new Date(c.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <p className="text-[11px] text-apple-gray-600 mt-0.5 leading-relaxed">{c.content}</p>
-                      </div>
+                {/* Comment List with Comment Likes & Nested Replies */}
+                <div className="space-y-4 max-h-96 overflow-y-auto no-scrollbar pb-2">
+                  {comments.length > 0 ? (
+                    comments.map(c => (
+                      <BarCommentItem
+                        key={c.id}
+                        postId={post.id}
+                        postAuthorId={post.authorId}
+                        comment={c}
+                        commentAuthor={commentAuthors[c.authorId]}
+                        onAvatarClick={onAvatarClick}
+                        onLinkClick={(url) => setBrowserUrl(url)}
+                        onMentionClick={handleMentionClick}
+                      />
+                    ))
+                  ) : (
+                    <div className="py-6 text-center text-apple-gray-400 text-xs">
+                      尚無留言，來發表第一則評論吧！
                     </div>
-                  ))}
+                  )}
                 </div>
               </motion.div>
             )}
@@ -577,7 +1044,23 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           }}
         />
       )}
+
+      {/* In-App Browser Modal with Security Warning Prompt */}
+      {browserUrl && (
+        <InAppBrowserModal
+          url={browserUrl}
+          onClose={() => setBrowserUrl(null)}
+        />
+      )}
+
+      {/* Share Post Modal (Threads / Instagram Style) */}
+      <ShareBarPostModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        post={post}
+        author={author}
+        onChatClick={onChatClick}
+      />
     </div>
   );
 };
-

@@ -61,7 +61,7 @@ export const SyncTimeLogo: React.FC<SyncTimeLogoProps> = ({
 }) => {
   const [loadError, setLoadError] = useState(false);
 
-  // Directly display /LOGO.png image file with vector fallback
+  // Directly display /LOGO.svg image file with vector fallback
   if (!loadError) {
     return (
       <div
@@ -69,11 +69,11 @@ export const SyncTimeLogo: React.FC<SyncTimeLogoProps> = ({
         style={{ width: size, height: size }}
       >
         <img
-          src="/LOGO.png"
+          src="/logo.svg"
           alt="SyncTime Mascot Logo"
           className="w-full h-full object-contain filter drop-shadow-md select-none"
           referrerPolicy="no-referrer"
-          onError={() => console.error('LOGO.png failed to load')}
+          onError={() => console.error('LOGO.svg failed to load')}
         />
       </div>
     );

@@ -26,7 +26,8 @@ import {
   X,
   FileCheck2,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  AtSign
 } from 'lucide-react';
 import { Notification, UserProfile, Trip } from '../types';
 
@@ -34,12 +35,14 @@ interface NotificationsPageProps {
   onTripClick: (id: string) => void;
   onUserClick: (id: string) => void;
   onChatClick?: (roomId: string) => void;
+  onPostClick?: (postId: string) => void;
 }
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ 
   onTripClick, 
   onUserClick, 
-  onChatClick 
+  onChatClick,
+  onPostClick
 }) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<(Notification & { fromProfile?: UserProfile, trip?: Trip })[]>([]);
@@ -292,16 +295,25 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           </div>
         );
       case 'post_like':
+      case 'comment_like':
         return (
           <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center border-2 border-white shadow-xs">
             <Heart size={10} fill="currentColor" />
           </div>
         );
       case 'post_comment':
+      case 'comment_reply':
       case 'trip_comment':
         return (
           <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#0081d1] text-white flex items-center justify-center border-2 border-white shadow-xs">
             <MessageSquare size={10} fill="currentColor" />
+          </div>
+        );
+      case 'post_mention':
+      case 'comment_mention':
+        return (
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-white shadow-xs">
+            <AtSign size={10} strokeWidth={2.5} />
           </div>
         );
       case 'trip_itinerary_updated':
@@ -354,7 +366,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               <div 
                 key={n.id} 
                 onClick={() => {
-                  if (n.tripId) {
+                  if (n.postId && onPostClick) {
+                    onPostClick(n.postId);
+                  } else if (n.tripId) {
                     onTripClick(n.tripId);
                   } else if (n.fromId && (n.type === 'friend_request' || n.type === 'friend_accepted')) {
                     onUserClick(n.fromId);
@@ -456,10 +470,38 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                       </span>
                     )}
 
+                    {/* Comment Liked */}
+                    {n.type === 'comment_like' && (
+                      <span className="text-apple-gray-700">
+                        讚了你在旅吧的留言：
+                      </span>
+                    )}
+
                     {/* Post Comment */}
                     {n.type === 'post_comment' && (
                       <span className="text-apple-gray-700">
                         在你的旅吧貼文留言：
+                      </span>
+                    )}
+
+                    {/* Comment Reply */}
+                    {n.type === 'comment_reply' && (
+                      <span className="text-apple-gray-700">
+                        回覆了你在旅吧的留言：
+                      </span>
+                    )}
+
+                    {/* Post Mention */}
+                    {n.type === 'post_mention' && (
+                      <span className="text-apple-gray-700">
+                        在旅吧見聞貼文中提及了你：
+                      </span>
+                    )}
+
+                    {/* Comment Mention */}
+                    {n.type === 'comment_mention' && (
+                      <span className="text-apple-gray-700">
+                        在旅吧留言中提及了你：
                       </span>
                     )}
 
