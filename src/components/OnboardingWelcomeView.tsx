@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowUpRight, Compass, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface OnboardingWelcomeViewProps {
@@ -9,29 +9,29 @@ interface OnboardingWelcomeViewProps {
 // Curated high-res twilight / wanderlust destinations that match the cinematic aesthetics
 const SCENES = [
   {
-    id: 'japan',
-    tag: '旅程示意 · 日本',
-    titleLine1: '找個旅伴',
-    titleLine2: '一起出發',
+    id: 'iceland',
+    tag: '難忘回憶 · 冰島極光',
+    titleLine1: '結伴同遊',
+    titleLine2: '精彩共時',
     subText: '旅程條件一目了然',
+    imageUrl: 'https://images.unsplash.com/photo-1517824806704-9040b037703b?auto=format&fit=crop&w=1200&q=85',
+    badges: ['P', 'H', 'B']
+  },
+  {
+    id: 'japan',
+    tag: '旅程探索 · 日本',
+    titleLine1: '找個旅伴',
+    titleLine2: '探索共時',
+    subText: '即時組隊分帳輕鬆遊',
     // Atmospheric twilight dusk scene with travelers overlooking scenic bay & city lights
     imageUrl: 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?auto=format&fit=crop&w=1200&q=85',
     badges: ['Y', 'L', 'M']
   },
   {
-    id: 'iceland',
-    tag: '旅程探索 · 冰島極光',
-    titleLine1: '結伴同遊',
-    titleLine2: '精彩共時',
-    subText: '即時組隊分帳輕鬆遊',
-    imageUrl: 'https://images.unsplash.com/photo-1517824806704-9040b037703b?auto=format&fit=crop&w=1200&q=85',
-    badges: ['P', 'H', 'B']
-  },
-  {
     id: 'swiss',
     tag: '旅伴同行 · 瑞士阿爾卑斯',
     titleLine1: '世界很大',
-    titleLine2: '我們同行',
+    titleLine2: '共時同行',
     subText: '透明條件與安全評價',
     imageUrl: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&w=1200&q=85',
     badges: ['A', 'C', 'K']
@@ -44,10 +44,14 @@ export const OnboardingWelcomeView: React.FC<OnboardingWelcomeViewProps> = ({
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const currentScene = SCENES[currentSceneIdx];
 
-  const handleNextScene = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSceneIdx((prev) => (prev + 1) % SCENES.length);
-  };
+  // Auto-rotate scene every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSceneIdx((prev) => (prev + 1) % SCENES.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="relative h-[100dvh] w-full max-w-md mx-auto overflow-hidden bg-[#07131e] flex flex-col justify-between select-none shadow-2xl">
@@ -78,25 +82,35 @@ export const OnboardingWelcomeView: React.FC<OnboardingWelcomeViewProps> = ({
 
       {/* Top Header / Branding area */}
       <div className="relative z-10 pt-[max(env(safe-area-inset-top,0px),20px)] px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-xs">
-            <Compass size={16} className="text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+            <img
+              src="/logo.svg"
+              alt="SyncTime Logo"
+              className="w-full h-full object-contain filter drop-shadow-sm select-none"
+            />
           </div>
           <span className="text-xs font-black tracking-widest text-white/90 uppercase drop-shadow-sm">
             SyncTime · 共時
           </span>
         </div>
 
-        {/* Optional scene switch button to preview different stunning travel backgrounds */}
-        <button
-          type="button"
-          onClick={handleNextScene}
-          className="px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[10px] font-bold text-white/80 flex items-center gap-1 active:scale-95 transition-all"
-          title="切換視覺風景"
-        >
-          <Sparkles size={11} className="text-cyan-300" />
-          <span>切換風景</span>
-        </button>
+        {/* Subtle slide indicators */}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
+          {SCENES.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setCurrentSceneIdx(idx)}
+              className={`h-1.5 rounded-full transition-all duration-500 cursor-pointer ${
+                idx === currentSceneIdx
+                  ? 'w-5 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]'
+                  : 'w-1.5 bg-white/30 hover:bg-white/50'
+              }`}
+              aria-label={`Slide ${idx + 1}`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Lower Main Content Area (Matches User Screenshot faithfully) */}
