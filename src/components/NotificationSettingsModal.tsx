@@ -11,6 +11,7 @@ import {
 
 interface NotificationSettingsModalProps {
   onClose: () => void;
+  onDone?: () => void;
 }
 
 const AUDIENCE_OPTIONS: {
@@ -145,7 +146,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
 
 export const NotificationSettingsModal: React.FC<
   NotificationSettingsModalProps
-> = ({ onClose }) => {
+> = ({ onClose, onDone }) => {
   const { user, profile } = useAuth();
 
   const initialPreferences = useMemo<PushNotificationPreferences>(
@@ -161,10 +162,22 @@ export const NotificationSettingsModal: React.FC<
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [saveState, setSaveState] =
     useState<'idle' | 'saved' | 'error'>('idle');
+  const [isSavingAll, setIsSavingAll] = useState(false);
 
   useEffect(() => {
     setPreferences(initialPreferences);
   }, [initialPreferences]);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, []);
 
   const persistPreferences = async (
     next: PushNotificationPreferences,
@@ -214,6 +227,28 @@ export const NotificationSettingsModal: React.FC<
     void persistPreferences(next, 'friendRequest');
   };
 
+  const handleDone = async () => {
+    if (user) {
+      setIsSavingAll(true);
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          pushNotificationPreferences: preferences
+        });
+        setSaveState('saved');
+      } catch (error) {
+        console.error('Failed to save push notification preferences on done:', error);
+        setSaveState('error');
+      } finally {
+        setIsSavingAll(false);
+      }
+    }
+    if (onDone) {
+      onDone();
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[500] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full">
       <div className="px-4 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 bg-white border-b border-apple-gray-100 shrink-0">
@@ -236,7 +271,7 @@ export const NotificationSettingsModal: React.FC<
             </p>
           </div>
 
-          <div className="w-10 flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1.5">
             {savingKey ? (
               <span className="text-[10px] font-bold text-[#035096]">
                 儲存中
@@ -246,6 +281,14 @@ export const NotificationSettingsModal: React.FC<
                 已儲存
               </span>
             ) : null}
+            <button
+              type="button"
+              onClick={handleDone}
+              disabled={isSavingAll}
+              className="text-apple-blue font-bold px-2 py-1 text-sm active:opacity-60 transition-opacity disabled:opacity-50"
+            >
+              {isSavingAll ? '儲存中...' : '完成'}
+            </button>
           </div>
         </div>
       </div>

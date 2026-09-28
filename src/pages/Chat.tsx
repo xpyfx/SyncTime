@@ -1778,7 +1778,7 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
               <div style="position: absolute; left: -31px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid #ffffff; box-shadow: 0 0 0 2px #3b82f6;"></div>
               
               <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-                <div style="font-weight: 800; font-size: 14px; color: #0f172a; flex: 1;">
+                <div style="font-weight: 800; font-size: 14px; color: #0f172a; flex: 1; word-break: break-all; word-wrap: break-word;">
                   ${act.time ? `<span style="display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-family: monospace; margin-right: 6px;">${act.time}</span>` : ''}
                   ${act.title}
                 </div>
@@ -1978,7 +1978,7 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
                                 {act.time}
                               </span>
                             )}
-                            <span className="font-extrabold text-xs text-slate-900 break-words leading-tight">
+                            <span className="font-extrabold text-xs text-slate-900 break-words break-all leading-tight">
                               {act.title}
                             </span>
                           </div>

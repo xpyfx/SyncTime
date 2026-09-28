@@ -38,13 +38,15 @@ import {
   FileWarning,
   UserX,
   Bot,
-  Plus
+  Plus,
+  FileText
 } from 'lucide-react';
 import { UserTagsSelectModal } from '../components/UserTagsSelectModal';
 import { getTagItem, DEFAULT_USER_TAGS } from '../data/userInterestTags';
 import { AppAIAssistantModal } from '../components/AppAIAssistantModal';
 import { UsernameSetupModal } from '../components/UsernameSetupModal';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
+import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
 import { getOrCreateChatRoom } from '../lib/chatUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -276,6 +278,7 @@ export const ProfilePage: React.FC<{
   const [showSettings, setShowSettings] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showUsernameEditModal, setShowUsernameEditModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -415,6 +418,58 @@ export const ProfilePage: React.FC<{
   const [savedTrips, setSavedTrips] = useState<Trip[]>([]);
   const [savedBarPosts, setSavedBarPosts] = useState<BarPost[]>([]);
   const [barAuthors, setBarAuthors] = useState<Record<string, UserProfile>>({});
+
+  const isAnySettingsSubPageOpen = Boolean(
+    showGestureSettings ||
+    showNotificationSettings ||
+    showBlocklist ||
+    showPrivacyPolicy ||
+    showHiddenPosts ||
+    showAIAssistant
+  );
+
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(
+      showSettings ||
+      showGestureSettings ||
+      showNotificationSettings ||
+      showBlocklist ||
+      showPrivacyPolicy ||
+      showHiddenPosts ||
+      showAIAssistant ||
+      showEditPassport ||
+      showTravelTrajectory ||
+      showSaved ||
+      showMyTrips ||
+      showFriends ||
+      showDeleteAccountModal
+    );
+
+    if (isAnyModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = document.body.style.overscrollBehavior;
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'none';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.overscrollBehavior = prevOverscroll;
+      };
+    }
+  }, [
+    showSettings,
+    showGestureSettings,
+    showNotificationSettings,
+    showBlocklist,
+    showPrivacyPolicy,
+    showHiddenPosts,
+    showAIAssistant,
+    showEditPassport,
+    showTravelTrajectory,
+    showSaved,
+    showMyTrips,
+    showFriends,
+    showDeleteAccountModal
+  ]);
 
   // Form state for editing passport
   const [passportForm, setPassportForm] = useState({
@@ -1664,7 +1719,9 @@ export const ProfilePage: React.FC<{
               <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
             
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-[max(env(safe-area-inset-bottom,0px),32px)] bg-apple-gray-50">
+            <div className={`flex-1 ${
+              isAnySettingsSubPageOpen ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto overscroll-contain'
+            } px-4 py-4 space-y-4 pb-[max(env(safe-area-inset-bottom,0px),32px)] bg-apple-gray-50`}>
               {/* SyncTime Dedicated AI Assistant Card */}
               <div className="
                 bg-[#B6cada]/25
@@ -1831,13 +1888,18 @@ export const ProfilePage: React.FC<{
                   label="通知設定"
                   onClick={() => {
                     setShowNotificationSettings(true);
-                    setShowSettings(false);
                   }}
                 />
                 <ProfileItem icon={Shield} label="封鎖名單" onClick={() => {
                   setShowBlocklist(true);
-                  setShowSettings(false);
                 }} />
+                <ProfileItem
+                  icon={FileText}
+                  label="隱私權政策"
+                  onClick={() => {
+                    setShowPrivacyPolicy(true);
+                  }}
+                />
               </div>
 
               <div className="bg-white rounded-2xl overflow-hidden shadow-apple-sm border border-apple-gray-100">
@@ -1951,7 +2013,7 @@ export const ProfilePage: React.FC<{
         {showGestureSettings && (
           <motion.div 
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            className="fixed inset-0 z-[210] bg-apple-gray-50 flex flex-col"
+            className="fixed inset-0 z-[210] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <div className="flex items-center gap-3">
@@ -1963,7 +2025,7 @@ export const ProfilePage: React.FC<{
               <button onClick={() => setShowGestureSettings(false)} className="text-apple-blue font-bold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-6 space-y-6 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {/* Home Section */}
               <div className="space-y-1 sm:space-y-1.5 md:space-y-2">
                 <h3 className="px-2 text-xs font-black text-apple-gray-300 uppercase tracking-widest">主頁徵文</h3>
@@ -2492,13 +2554,13 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none"
+            className="fixed inset-0 z-[210] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <h2 className="text-lg font-bold text-apple-gray-900">封鎖名單</h2>
               <button onClick={() => setShowBlocklist(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {myProfile?.blockedUsers?.length ? (
                 myProfile.blockedUsers.map(id => {
                   const bUser = blockedUsersDetails[id];
@@ -4139,7 +4201,7 @@ export const ProfilePage: React.FC<{
         {showHiddenPosts && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[200] bg-white flex flex-col"
+            className="fixed inset-0 z-[210] bg-white flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold text-apple-gray-900 border-none">隱藏的貼文</h2>
@@ -4163,7 +4225,7 @@ export const ProfilePage: React.FC<{
               </div>
             </div>
 
-            <div className="p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-6 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {hiddenTab === 'trips' ? (
                 hiddenTripsData.length ? hiddenTripsData.map(trip => (
                   <div key={trip.id} className="relative">
@@ -4250,8 +4312,19 @@ export const ProfilePage: React.FC<{
       {showNotificationSettings && (
         <NotificationSettingsModal
           onClose={() => setShowNotificationSettings(false)}
+          onDone={() => setShowNotificationSettings(false)}
         />
       )}
+
+      {/* Privacy Policy Modal */}
+      <AnimatePresence>
+        {showPrivacyPolicy && (
+          <PrivacyPolicyModal
+            isOpen={showPrivacyPolicy}
+            onClose={() => setShowPrivacyPolicy(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* SyncTime AI Assistant Modal */}
       <AppAIAssistantModal

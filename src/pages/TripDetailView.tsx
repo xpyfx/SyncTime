@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Trip, TripComment, UserProfile } from '../types';
 import { GlassSearchInput } from '../components/GlassSearchInput';
 import { GlassSendButton } from '../components/GlassSendButton';
@@ -1211,7 +1212,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
             )}
           </div>
 
-          <div className="min-h-[200px]">
+          <div className="min-h-[200px] min-w-0">
             {activeDetailTab === 'overview' ? (
               <div className="grid grid-cols-1 gap-6 bg-apple-gray-50 rounded-[32px] p-6 text-sm">
                 <div className="flex items-start gap-4">
@@ -1295,11 +1296,11 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 min-w-0">
                 {trip.itinerary && trip.itinerary.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4 min-w-0">
                     {trip.itinerary.sort((a, b) => a.dayNumber - b.dayNumber).map((day) => (
-                      <div key={day.id} className="relative pl-6 border-l border-apple-gray-100 ml-2">
+                      <div key={day.id} className="relative pl-6 border-l border-apple-gray-100 ml-2 min-w-0">
                         <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-apple-blue border-2 border-white shadow-sm" />
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -1317,29 +1318,29 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                             </button>
                           )}
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-3 min-w-0">
                           {day.activities.map((act) => (
-                            <div key={act.id} className="bg-white p-4 rounded-2xl border border-apple-gray-100/50 shadow-apple-xs">
-                              <div className="flex items-start gap-4">
+                            <div key={act.id} className="bg-white p-4 rounded-2xl border border-apple-gray-100/50 shadow-apple-xs overflow-hidden">
+                              <div className="flex items-start gap-3 min-w-0">
                                 {act.time && (
-                                  <span className="text-xs font-bold text-apple-gray-400 mt-0.5">{act.time}</span>
+                                  <span className="text-xs font-bold text-apple-gray-400 mt-0.5 shrink-0">{act.time}</span>
                                 )}
-                                <div className="flex-1">
-                                  <p className="text-sm font-bold text-apple-gray-800">{act.title}</p>
-                                  {act.notes && <p className="text-xs text-apple-gray-500 mt-1 leading-relaxed">{act.notes}</p>}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-apple-gray-800 break-words break-all leading-snug">{act.title}</p>
+                                  {act.notes && <p className="text-xs text-apple-gray-500 mt-1 leading-relaxed break-words break-all">{act.notes}</p>}
                                   {act.location && (
-                                    <div className="flex items-center gap-1.5 mt-2.5 text-xs text-apple-blue font-bold">
-                                      <MapPin size={12} />
-                                      <span className="break-words">{act.location}</span>
+                                    <div className="flex items-center gap-1.5 mt-2.5 text-xs text-apple-blue font-bold min-w-0">
+                                      <MapPin size={12} className="shrink-0" />
+                                      <span className="break-words break-all">{act.location}</span>
                                     </div>
                                   )}
                                 </div>
                                 {act.mapLink && (
                                   <a 
-                                    href={act.mapLink}
-                                    target="_blank"
+                                    href={act.mapLink} 
+                                    target="_blank" 
                                     rel="noreferrer"
-                                    className="w-10 h-10 rounded-full bg-apple-blue/5 flex items-center justify-center text-apple-blue flex-shrink-0 mt-[-4px]"
+                                    className="w-10 h-10 rounded-full bg-apple-blue/5 flex items-center justify-center text-apple-blue shrink-0 mt-[-4px] active:scale-90 transition-transform"
                                   >
                                     <MapPin size={18} />
                                   </a>
@@ -1777,38 +1778,42 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
         />
       </div>
 
-      <ItineraryManager 
-        isOpen={showItineraryEditor}
-        onClose={() => {
-          setShowItineraryEditor(false);
-          setEditingDayIndex(null);
-        }}
-        trip={trip}
-        dayIndex={editingDayIndex}
-        onSave={async (updatedItinerary) => {
-          await updateDoc(doc(db, 'trips', tripId), { itinerary: updatedItinerary });
-          // Notify other trip members and author about the itinerary change
-          if (trip) {
-            const allTargetIds = Array.from(new Set([trip.authorId, ...(trip.members || [])])).filter(id => id && id !== user?.uid);
-            for (const targetId of allTargetIds) {
-              try {
-                await addDoc(collection(db, 'notifications'), {
-                  type: 'trip_itinerary_updated',
-                  fromId: user?.uid,
-                  toId: targetId,
-                  tripId: tripId,
-                  status: 'pending',
-                  createdAt: serverTimestamp()
-                });
-              } catch (notifErr) {
-                console.warn('Failed to send itinerary update notification:', notifErr);
+      <AnimatePresence>
+        {showItineraryEditor && (
+          <ItineraryManager 
+            isOpen={showItineraryEditor}
+            onClose={() => {
+              setShowItineraryEditor(false);
+              setEditingDayIndex(null);
+            }}
+            trip={trip}
+            dayIndex={editingDayIndex}
+            onSave={async (updatedItinerary) => {
+              await updateDoc(doc(db, 'trips', tripId), { itinerary: updatedItinerary });
+              // Notify other trip members and author about the itinerary change
+              if (trip) {
+                const allTargetIds = Array.from(new Set([trip.authorId, ...(trip.members || [])])).filter(id => id && id !== user?.uid);
+                for (const targetId of allTargetIds) {
+                  try {
+                    await addDoc(collection(db, 'notifications'), {
+                      type: 'trip_itinerary_updated',
+                      fromId: user?.uid,
+                      toId: targetId,
+                      tripId: tripId,
+                      status: 'pending',
+                      createdAt: serverTimestamp()
+                    });
+                  } catch (notifErr) {
+                    console.warn('Failed to send itinerary update notification:', notifErr);
+                  }
+                }
               }
-            }
-          }
-          setShowItineraryEditor(false);
-          setEditingDayIndex(null);
-        }}
-      />
+              setShowItineraryEditor(false);
+              setEditingDayIndex(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isEditingFull && trip && (
@@ -1853,6 +1858,19 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
   useEffect(() => {
     if (trip.itinerary) setItinerary(trip.itinerary);
   }, [trip.itinerary]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = document.body.style.overscrollBehavior;
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'none';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.overscrollBehavior = prevOverscroll;
+      };
+    }
+  }, [isOpen]);
 
   const addDay = () => {
     const nextDay = itinerary.length + 1;
@@ -1906,26 +1924,38 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <motion.div 
-      initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-      className="fixed inset-0 z-[110] bg-white pt-[max(env(safe-area-inset-top,0px),48px)] overflow-y-auto"
+      initial={{ y: '100%' }} 
+      animate={{ y: 0 }} 
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+      className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden shadow-2xl"
     >
-      <div className="px-5 flex items-center justify-between mb-4 border-b border-apple-gray-50 pb-4 bg-white sticky top-0 z-10">
-        <h2 className="text-lg font-bold">行程安排設定</h2>
+      {/* Pinned non-scrolling Header */}
+      <header className="shrink-0 w-full px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3.5 flex items-center justify-between border-b border-apple-gray-100 bg-white shadow-2xs z-20">
+        <h2 className="text-lg font-bold text-apple-gray-900">行程安排設定</h2>
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-apple-gray-400 font-medium">取消</button>
           <button 
+            type="button"
+            onClick={onClose} 
+            className="text-apple-gray-400 font-medium active:opacity-60 transition-opacity"
+          >
+            取消
+          </button>
+          <button 
+            type="button"
             onClick={handleSave} 
             disabled={isSubmitting}
-            className="bg-apple-blue text-white px-4 py-1.5 rounded-xl text-sm font-bold shadow-apple-sm disabled:bg-apple-gray-200"
+            className="bg-apple-blue text-white px-4 py-1.5 rounded-xl text-sm font-bold shadow-apple-sm disabled:bg-apple-gray-200 active:scale-95 transition-all"
           >
             {isSubmitting ? '保存中...' : '儲存'}
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="p-6 space-y-8 pb-32">
+      {/* Dedicated scrollable form area */}
+      <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-8 pb-32">
         {itinerary.length === 0 && (
           <div className="text-center py-20">
             <p className="text-apple-gray-300 italic mb-4">目前尚無行程安排</p>
@@ -1963,7 +1993,7 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
                         placeholder="活動名稱/景點" 
                         value={act.title} 
                         onChange={e => updateActivity(dIdx, act.id, 'title', e.target.value)}
-                        className="flex-1 h-10 bg-white rounded-xl px-4 text-xs focus:outline-none"
+                        className="flex-1 min-w-0 h-10 bg-white rounded-xl px-4 text-xs focus:outline-none"
                       />
                     </div>
                     <input 
@@ -1973,12 +2003,12 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
                       className="w-full h-10 bg-white rounded-xl px-4 text-xs focus:outline-none"
                     />
                     <div className="flex gap-2">
-                       <MapPin size={14} className="text-apple-blue mt-3 ml-2" />
+                       <MapPin size={14} className="text-apple-blue mt-3 ml-2 shrink-0" />
                        <input 
                         placeholder="Google Map 連結 (選填)" 
                         value={act.mapLink} 
                         onChange={e => updateActivity(dIdx, act.id, 'mapLink', e.target.value)}
-                        className="flex-1 h-10 bg-white rounded-xl px-4 text-xs focus:outline-none"
+                        className="flex-1 min-w-0 h-10 bg-white rounded-xl px-4 text-xs focus:outline-none"
                       />
                     </div>
                     <textarea 
@@ -2009,6 +2039,7 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
           </button>
         )}
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };

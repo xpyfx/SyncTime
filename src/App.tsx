@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { AnimatePresence, motion } from 'motion/react';
 import { SyncTimeLogo, OfficialAppleLogo, OfficialGoogleLogo } from './components/SyncTimeLogo';
+import { OnboardingWelcomeView } from './components/OnboardingWelcomeView';
+import { X } from 'lucide-react';
 import { db } from './lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -21,6 +23,7 @@ import { getRoomUnreadCount, ChatRoom } from './types';
 
 const AppContent = () => {
   const { user, profile, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [selectedChatRoomId, setSelectedChatRoomId] = useState<string | null>(null);
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
@@ -104,44 +107,103 @@ const AppContent = () => {
 
   if (!user) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center p-6 bg-white text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-8 max-w-sm w-full"
-        >
-          <div className="flex justify-center -mb-2">
-            <SyncTimeLogo size={170} />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">SyncTime 共時</h1>
-            <p className="text-apple-gray-400 font-light px-4">探索世界，找尋最合適的旅伴，精彩生活，與君共時。</p>
-          </div>
-          <div className="space-y-3 w-full">
-            <button
-              id="google-login-button"
-              type="button"
-              onClick={login}
-              className="w-full h-14 bg-apple-gray-600 text-white rounded-2xl flex items-center justify-center gap-3 font-medium hover:bg-apple-gray-500 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
-            >
-              <OfficialGoogleLogo className="w-5 h-5" />
-              <span>使用 Google 登入</span>
-            </button>
-            <button
-              id="apple-login-button"
-              type="button"
-              onClick={loginWithApple}
-              className="w-full h-14 bg-black text-white rounded-2xl flex items-center justify-center gap-3 font-medium hover:bg-zinc-900 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
-            >
-              <OfficialAppleLogo className="w-5 h-5 fill-current" />
-              <span>使用 Apple 帳號登入</span>
-            </button>
-          </div>
-        </motion.div>
+      <div className="relative h-[100dvh] w-full max-w-md mx-auto overflow-hidden bg-black select-none">
+        {/* Cinematic Onboarding Welcome View */}
+        <OnboardingWelcomeView onExplore={() => setShowLoginSheet(true)} />
+
+        {/* Login Sheet Modal */}
+        <AnimatePresence>
+          {showLoginSheet && (
+            <>
+              {/* Dimmed backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowLoginSheet(false)}
+                className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md"
+              />
+
+              {/* Slide-up Login Sheet */}
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                className="fixed inset-x-0 bottom-0 z-50 max-w-md mx-auto bg-white rounded-t-[36px] shadow-2xl p-6 pt-5 pb-[max(env(safe-area-inset-bottom,0px),28px)] flex flex-col items-center text-center"
+              >
+                {/* Pull bar & Close Button */}
+                <div className="w-full flex items-center justify-between mb-2">
+                  <div className="w-8" />
+                  <div className="w-12 h-1.5 rounded-full bg-apple-gray-200" />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginSheet(false)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-apple-gray-400 hover:text-apple-gray-700 active:bg-apple-gray-100 transition-colors cursor-pointer"
+                    aria-label="關閉"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="w-full space-y-6 pt-1 max-w-xs mx-auto">
+                  <div className="flex justify-center -mb-2">
+                    <SyncTimeLogo size={130} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h2 className="text-2xl font-black tracking-tight text-apple-gray-900">
+                      SyncTime 共時
+                    </h2>
+                    <p className="text-xs text-apple-gray-500 leading-relaxed px-2 font-medium">
+                      探索世界，找尋最合適的旅伴，精彩生活，與君共時。
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 w-full pt-1">
+                    <button
+                      id="google-login-button"
+                      type="button"
+                      onClick={login}
+                      className="w-full h-13 bg-apple-gray-700 text-white rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-apple-gray-600 active:scale-[0.98] transition-all shadow-sm cursor-pointer text-sm"
+                    >
+                      <OfficialGoogleLogo className="w-4 h-4" />
+                      <span>使用 Google 登入</span>
+                    </button>
+
+                    <button
+                      id="apple-login-button"
+                      type="button"
+                      onClick={loginWithApple}
+                      className="w-full h-13 bg-black text-white rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-zinc-900 active:scale-[0.98] transition-all shadow-sm cursor-pointer text-sm"
+                    >
+                      <OfficialAppleLogo className="w-4 h-4 fill-current" />
+                      <span>使用 Apple 帳號登入</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginSheet(false)}
+                      className="text-xs font-semibold text-apple-gray-400 hover:text-apple-gray-600 transition-colors"
+                    >
+                      返回前導介紹
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-apple-gray-400 pt-1 leading-normal">
+                    登入即代表您同意 SyncTime 服務條款與隱私權保護政策
+                  </p>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Apple Login / Auth Notice Dialog */}
         {authModal?.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
