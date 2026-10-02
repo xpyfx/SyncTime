@@ -45,7 +45,7 @@ interface OfficialBadgeProps {
 
 export const OfficialBadge: React.FC<OfficialBadgeProps> = ({
   profile,
-  size = 15,
+  size = 16,
   className = ''
 }) => {
   if (!isOfficialAccount(profile)) return null;
@@ -59,19 +59,22 @@ export const OfficialBadge: React.FC<OfficialBadgeProps> = ({
       <svg
         width={size}
         height={size}
-        viewBox="0 0 24 24"
+        viewBox="0 0 28 28"
         role="img"
         aria-hidden="true"
+        className="overflow-visible"
       >
-        <path
-          d="M12 1.8 16.2 4l4.7.7.7 4.7 2.2 4.2-3.4 3.4-.7 4.7-4.7.7L12 22.2 7.8 20l-4.7-.7-.7-4.7L.2 12l2.2-4.2.7-4.7L7.8 4 12 1.8Z"
+        {/* Six-point verification seal with enough padding so the tips never clip. */}
+        <polygon
+          points="14,2.2 16.4,6.1 20.9,5.2 20,9.7 24.1,12 20,14.3 20.9,18.8 16.4,17.9 14,21.8 11.6,17.9 7.1,18.8 8,14.3 3.9,12 8,9.7 7.1,5.2 11.6,6.1"
           fill="#035096"
+          transform="translate(0 2)"
         />
         <path
-          d="m7.7 12.2 2.7 2.7 5.9-6"
+          d="m9.3 14.2 3 3 6.5-6.6"
           fill="none"
           stroke="#fff"
-          strokeWidth="2.1"
+          strokeWidth="2.15"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
