@@ -617,6 +617,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   const [commentAuthors, setCommentAuthors] = useState<Record<string, UserProfile>>({});
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [mentionUsers, setMentionUsers] = useState<UserProfile[]>([]);
+  const [showCommentMentionPicker, setShowCommentMentionPicker] = useState(false);
 
   // In-App Browser URL state
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
@@ -669,6 +671,21 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       });
     }
   }, [post.id, showComments]);
+
+  useEffect(() => {
+    if (!showComments) return;
+
+    getDocs(collection(db, 'users'))
+      .then(snapshot => {
+        const list = snapshot.docs
+          .map(d => ({ uid: d.id, ...d.data() } as UserProfile))
+          .filter(profile => !profile.isDeleted && profile.uid !== user?.uid);
+        setMentionUsers(list);
+      })
+      .catch(error => {
+        console.warn('Failed to load mention users:', error);
+      });
+  }, [showComments, user?.uid]);
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -746,8 +763,10 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !user || isPostingComment) return;
+
     const commentContent = newComment.trim();
     setIsPostingComment(true);
+
     try {
       await addDoc(collection(db, 'barPosts', post.id, 'comments'), {
         authorId: user.uid,
@@ -756,10 +775,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
         repliesCount: 0,
         createdAt: new Date().toISOString()
       });
+
       await updateDoc(doc(db, 'barPosts', post.id), {
-        commentsCount: (post.commentsCount || 0) + 1
+        commentsCount: increment(1)
       });
-      // Send notification to post author
+
       if (post.authorId && post.authorId !== user.uid) {
         try {
           await addDoc(collection(db, 'notifications'), {
@@ -777,6 +797,47 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           console.warn('Failed to send comment notification:', notifErr);
         }
       }
+
+      const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
+      const handles = Array.from(
+        commentContent.matchAll(mentionRegex),
+        match => match[1].toLowerCase()
+      );
+
+      const notified = new Set<string>();
+      for (const handle of handles) {
+        const target = mentionUsers.find(profile => {
+          const username = (profile.username || '').toLowerCase();
+          const displayName = (profile.displayName || '').toLowerCase();
+          return username === handle || displayName === handle;
+        });
+
+        if (
+          !target ||
+          target.uid === user.uid ||
+          target.uid === post.authorId ||
+          notified.has(target.uid)
+        ) {
+          continue;
+        }
+
+        notified.add(target.uid);
+
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            type: 'comment_mention',
+            fromId: user.uid,
+            toId: target.uid,
+            postId: post.id,
+            commentText: commentContent.slice(0, 80),
+            status: 'pending',
+            createdAt: serverTimestamp()
+          });
+        } catch (notifErr) {
+          console.warn('Failed to send comment mention notification:', notifErr);
+        }
+      }
+
       setNewComment('');
     } catch (e) {
       console.error(e);
@@ -885,8 +946,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
         <div className="flex-1 space-y-2.5 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group min-w-0" onClick={() => onAvatarClick?.(post.authorId)}>
-               <span className="font-bold text-sm tracking-tight group-hover:underline truncate">
-                 {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
+               <span className="font-bold text-sm tracking-tight group-hover:underline truncate inline-flex items-center gap-1">
+                 <span className="truncate">
+                   {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
+                 </span>
+                 {!isDeletedAuthor && <OfficialBadge profile={author} size={13} />}
                </span>
                <span className="text-[10px] text-apple-gray-300 font-medium truncate">
                  {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
@@ -1115,6 +1179,14 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               >
                 {/* Comment Input */}
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCommentMentionPicker(true)}
+                    className="w-10 h-10 rounded-full bg-apple-gray-50 ring-1 ring-inset ring-apple-gray-100 text-[#035096] font-black text-sm flex items-center justify-center shrink-0 active:scale-95 transition-transform"
+                    title="標註用戶"
+                  >
+                    @
+                  </button>
                   <input 
                     value={newComment}
                     onChange={e => setNewComment(e.target.value)}
@@ -1124,7 +1196,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                         handlePostComment();
                       }
                     }}
-                    placeholder="發表留言..."
+                    placeholder="發表留言，可使用 @ 標註其他用戶..."
                     className="flex-1 h-10 bg-apple-gray-50 rounded-full px-4 text-xs focus:outline-none ring-1 ring-inset ring-apple-gray-100 text-apple-gray-800 placeholder:text-apple-gray-400"
                   />
                   <GlassSendButton
@@ -1150,6 +1222,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                         onAvatarClick={onAvatarClick}
                         onLinkClick={(url) => setBrowserUrl(url)}
                         onMentionClick={handleMentionClick}
+                        mentionUsers={mentionUsers}
                       />
                     ))
                   ) : (
@@ -1163,6 +1236,22 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           </AnimatePresence>
         </div>
       </div>
+
+      <UserMentionPickerModal
+        isOpen={showCommentMentionPicker}
+        onClose={() => setShowCommentMentionPicker(false)}
+        users={mentionUsers}
+        title="標註 SyncTime 用戶"
+        onSelectUser={target => {
+          const handle = target.username || target.displayName;
+          setNewComment(previous =>
+            previous
+              ? `${previous} @${handle} `
+              : `@${handle} `
+          );
+          setShowCommentMentionPicker(false);
+        }}
+      />
 
       {/* Report Modal */}
       {isReporting && (
