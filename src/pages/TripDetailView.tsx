@@ -24,12 +24,14 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, MoreVertical, Send, ShieldAlert, Trash2, Edit2, Calendar, MapPin, Users, Wallet, Plane, Info, Heart, MessageCircle, Plus, X, Ticket, Star, Lock } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Send, Share2, ShieldAlert, Trash2, Edit2, Calendar, MapPin, Users, Wallet, Plane, Info, Heart, MessageCircle, Plus, X, Ticket, Star, Lock } from 'lucide-react';
 import { getOrCreateChatRoom } from '../lib/chatUtils';
 import { CreateTripView } from './CreateTrip';
 import { CommentReply } from '../types';
 import { getTripDeletionInfo } from './Chat';
 import { ReportModal } from '../components/ReportModal';
+import { ShareTripModal } from '../components/ShareTripModal';
+import { OfficialBadge } from '../components/OfficialBadge';
 
 interface CommentItemProps {
   comment: TripComment;
@@ -264,6 +266,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
   const [newComment, setNewComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [isEditingFull, setIsEditingFull] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [memberProfiles, setMemberProfiles] = useState<UserProfile[]>([]);
@@ -1055,11 +1058,22 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-apple-md border border-apple-gray-100 overflow-hidden z-30"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowShareModal(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-apple-gray-600 active:bg-apple-gray-50 transition-colors"
+                >
+                  <Share2 size={16} /> 分享旅程
+                </button>
+
                 {isAuthor ? (
                   <>
                     <button 
                       onClick={() => { setIsEditingFull(true); setShowMenu(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-apple-gray-600 active:bg-apple-gray-50"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-apple-gray-600 active:bg-apple-gray-50 border-t border-apple-gray-50"
                     >
                       <Edit2 size={16} /> 編輯內容
                     </button>
@@ -1070,7 +1084,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                 ) : (
                   <button 
                     onClick={handleReportTrip}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-apple-gray-600 active:bg-apple-gray-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-apple-gray-600 active:bg-apple-gray-50 transition-colors border-t border-apple-gray-50"
                   >
                     <ShieldAlert size={16} /> 檢舉貼文
                   </button>
@@ -1099,7 +1113,10 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
               )}
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-lg">{author.displayName}</span>
+              <span className="font-bold text-lg inline-flex items-center gap-1.5">
+                <span>{author.displayName}</span>
+                <OfficialBadge profile={author} size={16} />
+              </span>
               <span className="text-xs text-apple-gray-300 font-medium">@{author.username}</span>
             </div>
           </div>
@@ -1823,6 +1840,13 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
           />
         )}
       </AnimatePresence>
+
+      <ShareTripModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        trip={trip}
+        author={author}
+      />
 
       {/* Report Modal */}
       {showReportModal && trip && (
