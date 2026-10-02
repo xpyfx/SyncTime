@@ -196,17 +196,14 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
         createdAt: new Date().toISOString()
       });
 
-      // Update parent comment repliesCount
       await updateDoc(doc(db, 'barPosts', postId, 'comments', comment.id), {
         repliesCount: increment(1)
       }).catch(() => {});
 
-      // Increment overall post commentsCount
       await updateDoc(doc(db, 'barPosts', postId), {
         commentsCount: increment(1)
       }).catch(() => {});
 
-      // Send notification to comment author if not self
       if (comment.authorId && comment.authorId !== user.uid) {
         try {
           await addDoc(collection(db, 'notifications'), {
@@ -220,6 +217,46 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
           });
         } catch (notifErr) {
           console.warn('Failed to send comment_reply notification:', notifErr);
+        }
+      }
+
+      const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
+      const mentionHandles = Array.from(
+        replyContent.matchAll(mentionRegex),
+        match => match[1].toLowerCase()
+      );
+
+      const notified = new Set<string>();
+      for (const handle of mentionHandles) {
+        const target = mentionUsers.find(profile => {
+          const username = (profile.username || '').toLowerCase();
+          const displayName = (profile.displayName || '').toLowerCase();
+          return username === handle || displayName === handle;
+        });
+
+        if (
+          !target ||
+          target.uid === user.uid ||
+          target.uid === comment.authorId ||
+          notified.has(target.uid)
+        ) {
+          continue;
+        }
+
+        notified.add(target.uid);
+
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            type: 'comment_mention',
+            fromId: user.uid,
+            toId: target.uid,
+            postId,
+            commentText: replyContent.slice(0, 80),
+            status: 'pending',
+            createdAt: serverTimestamp()
+          });
+        } catch (notifErr) {
+          console.warn('Failed to send reply mention notification:', notifErr);
         }
       }
 
@@ -256,6 +293,49 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteComment = async () => {
+    if (!user || comment.authorId !== user.uid) return;
+    if (!window.confirm('刪除這則留言？')) return;
+
+    try {
+      await deleteDoc(doc(db, 'barPosts', postId, 'comments', comment.id));
+      await updateDoc(doc(db, 'barPosts', postId), {
+        commentsCount: increment(-(1 + replies.length))
+      }).catch(() => {});
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    }
+  };
+
+  const handleDeleteReply = async (reply: BarCommentReply) => {
+    if (!user || reply.authorId !== user.uid) return;
+    if (!window.confirm('刪除這則回覆？')) return;
+
+    try {
+      await deleteDoc(
+        doc(
+          db,
+          'barPosts',
+          postId,
+          'comments',
+          comment.id,
+          'replies',
+          reply.id
+        )
+      );
+
+      await updateDoc(doc(db, 'barPosts', postId, 'comments', comment.id), {
+        repliesCount: increment(-1)
+      }).catch(() => {});
+
+      await updateDoc(doc(db, 'barPosts', postId), {
+        commentsCount: increment(-1)
+      }).catch(() => {});
+    } catch (error) {
+      console.error('Failed to delete reply:', error);
     }
   };
 
