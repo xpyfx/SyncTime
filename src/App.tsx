@@ -30,8 +30,10 @@ const AppContent = () => {
     try {
       const params = new URLSearchParams(window.location.search);
       const pId = params.get('postId') || params.get('post');
+      const tripId = params.get('tripId') || params.get('trip');
       const tabParam = params.get('tab');
       if (pId) return 'bar';
+      if (tripId) return 'home';
       if (tabParam && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)) {
         return tabParam;
       }
@@ -51,7 +53,14 @@ const AppContent = () => {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   
   // Detail views stack
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tripId') || params.get('trip') || null;
+    } catch {
+      return null;
+    }
+  });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [viewingUserPostsId, setViewingUserPostsId] = useState<string | null>(null);
 
@@ -104,12 +113,26 @@ const AppContent = () => {
       try {
         const params = new URLSearchParams(window.location.search);
         const pId = params.get('postId') || params.get('post');
+        const sharedTripId = params.get('tripId') || params.get('trip');
         const tabParam = params.get('tab');
+
         if (pId) {
           setTargetPostId(pId);
           setTravelBarTab('recommended');
           setActiveTab('bar');
-        } else if (tabParam && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)) {
+        }
+
+        if (sharedTripId) {
+          setSelectedTripId(sharedTripId);
+          if (!pId) setActiveTab('home');
+        }
+
+        if (
+          !pId &&
+          !sharedTripId &&
+          tabParam &&
+          ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)
+        ) {
           setActiveTab(tabParam);
         }
       } catch (e) {
@@ -469,7 +492,17 @@ const AppContent = () => {
           >
             <TripDetailView 
               tripId={selectedTripId} 
-              onBack={() => setSelectedTripId(null)} 
+              onBack={() => {
+                setSelectedTripId(null);
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('tripId');
+                  url.searchParams.delete('trip');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {
+                  // ignore
+                }
+              }} 
               onChatOpen={handleOpenChat}
               onAvatarClick={setSelectedUserId}
             />
