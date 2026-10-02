@@ -18,6 +18,7 @@
         "visitedCities": { "type": "number", "description": "Number of unique countries/cities visited" },
         "blockedUsers": { "type": "array", "items": { "type": "string" } },
         "friends": { "type": "array", "items": { "type": "string" } },
+        "isOfficial": { "type": "boolean", "description": "Admin-controlled SyncTime official/team/partner verification badge" },
         "pushNotificationPreferences": {
           "type": "object",
           "description": "System push notification preferences",
