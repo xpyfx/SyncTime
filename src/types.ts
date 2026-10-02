@@ -61,6 +61,7 @@ export interface UserProfile {
   interestTags?: string[]; // User selected interest tags (max 6)
   customExpenseCategories?: string[]; // User-defined expense categories persisted across trips
   pushNotificationPreferences?: PushNotificationPreferences; // System push notification preferences
+  isOfficial?: boolean; // SyncTime official/team/partner account badge
   isDeleted?: boolean;
   deletedAt?: string;
 }
