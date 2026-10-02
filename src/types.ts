@@ -394,12 +394,29 @@ export interface SharedBarPostCardData {
   createdAt?: string;
 }
 
+export interface SharedTripCardData {
+  tripId: string;
+  authorId: string;
+  authorName: string;
+  authorUsername?: string;
+  authorAvatar?: string;
+  country: string;
+  cities: string[];
+  startDate: string;
+  endDate: string;
+  status?: TripStatus;
+  budgetLevel?: BudgetLevel;
+  totalPeople?: number;
+}
+
 export interface Message {
   id: string;
   senderId: string;
   text: string;
   sharedPostId?: string;
   sharedPost?: SharedBarPostCardData;
+  sharedTripId?: string;
+  sharedTrip?: SharedTripCardData;
   createdAt: string;
   mediaList?: { type: 'image' | 'video' | 'file', url: string; name?: string; size?: string }[];
   poll?: PollData;
