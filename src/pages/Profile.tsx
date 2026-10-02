@@ -76,6 +76,7 @@ import { COUNTRIES, ENGLISH_COUNTRIES, getCountryISO3, searchCities } from '../l
 import { COUNTRY_STAMPS, CountryStamp } from '../lib/countryStampData';
 import { CountryStampBadge } from '../components/CountryStampBadge';
 import { PassportSecurityWatermark, requestPassportMotionPermission } from '../components/PassportSecurityWatermark';
+import { OfficialBadge } from '../components/OfficialBadge';
 
 const getZodiacSign = (dateVal: any) => {
   if (!dateVal) return 'Unknown';
@@ -671,9 +672,14 @@ export const ProfilePage: React.FC<{
           {/* Row 2: Name */}
           <div className="py-0 -mt-1">
             <label className="text-[9px] font-bold text-[#035096] uppercase tracking-tighter block">姓名</label>
-            <p className="text-[18px] font-normal text-[#2d2a23] leading-none truncate tracking-tight py-1">
-              {isPassportExpired ? '-' : (profile?.displayName || '-')}
-            </p>
+            <div className="flex items-center gap-1.5 py-1 min-w-0">
+              <p className="text-[18px] font-normal text-[#2d2a23] leading-none truncate tracking-tight min-w-0">
+                {isPassportExpired ? '-' : (profile?.displayName || '-')}
+              </p>
+              {!isPassportExpired && (
+                <OfficialBadge profile={profile} size={14} />
+              )}
+            </div>
           </div>
 
           {/* Bio Info Rows */}
