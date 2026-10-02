@@ -94,6 +94,8 @@ export const TravelBarView: React.FC<{
     }
     const unsubSaved = onSnapshot(collection(db, 'users', user.uid, 'savedPosts'), (snap) => {
       setSavedPostIds(new Set(snap.docs.map(d => d.id)));
+    }, (err) => {
+      console.warn('Saved posts listener warning:', err);
     });
 
     // 監聽用戶已參加 (members 包含 uid) 及發起 (authorId 為 uid) 的行程
@@ -142,6 +144,7 @@ export const TravelBarView: React.FC<{
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     const q = query(collection(db, 'barPosts'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, async (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BarPost));
@@ -169,8 +172,10 @@ export const TravelBarView: React.FC<{
           console.error('Error fetching authors: ', error);
         }
       }
+    }, (err) => {
+      console.warn('BarPosts snapshot listener warning:', err);
     });
-  }, []);
+  }, [user]);
 
   // Check if current draft content is typing @query for real-time suggestions
   const mentionMatch = useMemo(() => {

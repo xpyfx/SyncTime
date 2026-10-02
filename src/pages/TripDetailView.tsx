@@ -345,6 +345,8 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
         }
       });
       setExistingReviews(reviewedMap);
+    }, (err) => {
+      console.warn('Trip reviews snapshot listener warning:', err);
     });
   }, [user, tripId]);
 

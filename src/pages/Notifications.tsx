@@ -152,6 +152,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         console.error('Notifications fetch error:', err);
         setLoading(false);
       }
+    }, (err) => {
+      console.warn('Notifications snapshot error:', err);
+      setLoading(false);
     });
 
     return () => unsubNotif();

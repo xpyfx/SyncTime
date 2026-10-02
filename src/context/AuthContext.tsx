@@ -101,6 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             // onSnapshot will trigger again after setDoc
           }
+        }, (err) => {
+          console.warn('Profile snapshot listener warning:', err);
+          setLoading(false);
         });
 
         // Real-time listener for users who blocked this user (mutual invisibility)

@@ -26,10 +26,18 @@ export const UserPostsView: React.FC<UserPostsViewProps> = ({ userId, onBack, on
 
     const qTrips = query(collection(db, 'trips'), where('authorId', '==', userId), orderBy('createdAt', 'desc'));
 
-    const unsubTrips = onSnapshot(qTrips, (s) => setTrips(s.docs.map(d => ({ id: d.id, ...d.data() } as Trip))));
+    const unsubTrips = onSnapshot(
+      qTrips,
+      (s) => setTrips(s.docs.map(d => ({ id: d.id, ...d.data() } as Trip))),
+      (err) => console.warn('User trips listener error:', err)
+    );
 
     const qBar = query(collection(db, 'barPosts'), where('authorId', '==', userId), orderBy('createdAt', 'desc'));
-    const unsubBar = onSnapshot(qBar, (s) => setBarPosts(s.docs.map(d => ({ id: d.id, ...d.data() } as BarPost))));
+    const unsubBar = onSnapshot(
+      qBar,
+      (s) => setBarPosts(s.docs.map(d => ({ id: d.id, ...d.data() } as BarPost))),
+      (err) => console.warn('User bar posts listener error:', err)
+    );
 
     return () => { unsubTrips(); unsubBar(); };
   }, [userId]);

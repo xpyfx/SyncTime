@@ -37,6 +37,8 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
     if (!user) return;
     const unsub = onSnapshot(doc(db, 'users', user.uid, 'savedTrips', trip.id), (s) => {
       setIsSaved(s.exists());
+    }, (err) => {
+      console.warn('TripCard save status listener warning:', err);
     });
     return unsub;
   }, [user, trip.id]);

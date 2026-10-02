@@ -36,11 +36,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
     }
     const unsub = onSnapshot(collection(db, 'users', user.uid, 'savedTrips'), (snap) => {
       setSavedTripIds(new Set(snap.docs.map(d => d.id)));
+    }, (err) => {
+      console.warn('Saved trips listener error:', err);
     });
     return unsub;
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     const q = query(collection(db, 'trips'), orderBy('createdAt', 'desc'));
     
     return onSnapshot(q, async (snapshot) => {
@@ -70,8 +73,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
           console.error('Error fetching profiles: ', error);
         }
       }
+    }, (err) => {
+      console.warn('Trips onSnapshot error:', err);
+      setLoading(false);
     });
-  }, []);
+  }, [user]);
 
   const handleAction = async (trip: Trip, action: '收藏' | '不感興趣' | '檢舉') => {
     if (!user) return;

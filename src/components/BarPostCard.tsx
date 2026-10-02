@@ -95,7 +95,8 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
     if (!user) return;
     const unsubLike = onSnapshot(
       doc(db, 'barPosts', postId, 'comments', comment.id, 'likes', user.uid),
-      s => setIsLiked(s.exists())
+      s => setIsLiked(s.exists()),
+      err => console.warn('Comment like listener warning:', err)
     );
     return () => unsubLike();
   }, [postId, comment.id, user]);
@@ -132,6 +133,8 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
         }
       }
       setReplyAuthors(newAuthors);
+    }, (err) => {
+      console.warn('Comment replies listener warning:', err);
     });
 
     return () => unsubReplies();
@@ -640,9 +643,17 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   useEffect(() => {
     if (!user) return;
     // Like status
-    const unsubLike = onSnapshot(doc(db, 'barPosts', post.id, 'likes', user.uid), s => setIsLiked(s.exists()));
+    const unsubLike = onSnapshot(
+      doc(db, 'barPosts', post.id, 'likes', user.uid),
+      s => setIsLiked(s.exists()),
+      err => console.warn('Post like listener warning:', err)
+    );
     // Favorite status
-    const unsubFav = onSnapshot(doc(db, 'users', user.uid, 'savedPosts', post.id), s => setIsFavorited(s.exists()));
+    const unsubFav = onSnapshot(
+      doc(db, 'users', user.uid, 'savedPosts', post.id),
+      s => setIsFavorited(s.exists()),
+      err => console.warn('Post fav listener warning:', err)
+    );
     return () => {
       unsubLike();
       unsubFav();
@@ -668,6 +679,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           }
         }
         setCommentAuthors(newAuthors);
+      }, (err) => {
+        console.warn('Post comments listener warning:', err);
       });
     }
   }, [post.id, showComments]);

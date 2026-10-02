@@ -43,6 +43,7 @@ export const PopularTravelBarSection: React.FC<PopularTravelBarSectionProps> = (
 
   // Load all bar posts and compute discussion ranking
   useEffect(() => {
+    if (!user) return;
     const q = query(collection(db, 'barPosts'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, async (snapshot) => {
       const allPosts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as BarPost));
@@ -93,10 +94,13 @@ export const PopularTravelBarSection: React.FC<PopularTravelBarSectionProps> = (
           console.warn('Error fetching travel bar authors:', e);
         }
       }
+    }, (err) => {
+      console.warn('Popular travel bar listener error:', err);
+      setLoading(false);
     });
 
     return () => unsub();
-  }, [profile?.hiddenItems, isUserBlocked]);
+  }, [user, profile?.hiddenItems, isUserBlocked]);
 
   if (loading) {
     return (

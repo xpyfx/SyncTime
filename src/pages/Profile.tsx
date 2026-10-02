@@ -231,6 +231,9 @@ export const ProfilePage: React.FC<{
         setProfile(null);
       }
       setProfileLoading(false);
+    }, (err) => {
+      console.warn('Profile listener error:', err);
+      setProfileLoading(false);
     });
     return unsub;
   }, [effectiveUserId]);
@@ -1012,7 +1015,11 @@ export const ProfilePage: React.FC<{
       where('receiverId', '==', searchResult.uid),
       where('status', '==', 'pending')
     );
-    return onSnapshot(q, (s) => setSearchRequestPending(!s.empty));
+    return onSnapshot(
+      q,
+      (s) => setSearchRequestPending(!s.empty),
+      (err) => console.warn('Search friend request listener warning:', err)
+    );
   }, [user, searchResult]);
 
   const formatDateTime = (timestamp: any) => {
@@ -1069,6 +1076,8 @@ export const ProfilePage: React.FC<{
           }
         }
         setPendingRequests(reqs);
+      }, (err) => {
+        console.warn('Pending friend requests listener warning:', err);
       });
 
       const qSentReq = query(collection(db, 'friendRequests'), where('senderId', '==', effectiveUserId), where('status', '==', 'pending'));
@@ -1085,6 +1094,8 @@ export const ProfilePage: React.FC<{
           }
         }
         setSentRequests(reqs);
+      }, (err) => {
+        console.warn('Sent friend requests listener warning:', err);
       });
     }
 
@@ -1119,6 +1130,8 @@ export const ProfilePage: React.FC<{
           }
         }).catch(console.error);
       }
+    }, (err) => {
+      console.warn('Saved trips listener warning:', err);
     });
 
     // Listen to saved bar posts
@@ -1152,6 +1165,8 @@ export const ProfilePage: React.FC<{
           }
         }).catch(console.error);
       }
+    }, (err) => {
+      console.warn('Saved posts listener warning:', err);
     });
 
     // Listen to my joined trips (inclusive of authoring)
@@ -1179,12 +1194,16 @@ export const ProfilePage: React.FC<{
           }
         }).catch(console.error);
       }
+    }, (err) => {
+      console.warn('My trips listener warning:', err);
     });
 
     // Listen to my authored trips
     const qTripsAuth = query(collection(db, 'trips'), where('authorId', '==', effectiveUserId));
     const unsubTrips = onSnapshot(qTripsAuth, (s) => {
       // Just for count consistency
+    }, (err) => {
+      console.warn('Authored trips listener warning:', err);
     });
 
     // Listen to my bar posts
@@ -1192,6 +1211,8 @@ export const ProfilePage: React.FC<{
     const unsubBar = onSnapshot(qBarPostsAuth, (barS) => {
       const posts = barS.docs.map(d => ({ id: d.id, ...d.data() } as BarPost));
       setMyPosts(posts);
+    }, (err) => {
+      console.warn('Authored bar posts listener warning:', err);
     });
 
     return () => { 
@@ -1217,10 +1238,14 @@ export const ProfilePage: React.FC<{
     const unsub1 = onSnapshot(q1, s => {
       count1 = s.size;
       setPostsCount(count1 + count2);
+    }, (err) => {
+      console.warn('Trips count listener warning:', err);
     });
     const unsub2 = onSnapshot(q2, s => {
       count2 = s.size;
       setPostsCount(count1 + count2);
+    }, (err) => {
+      console.warn('Bar posts count listener warning:', err);
     });
 
     return () => { unsub1(); unsub2(); };
@@ -1231,8 +1256,13 @@ export const ProfilePage: React.FC<{
       setFriendsList([]);
       return;
     }
-    const q = query(collection(db, 'users'), where(documentId(), 'in', profile.friends));
-    return onSnapshot(q, (s) => setFriendsList(s.docs.map(d => d.data() as UserProfile)));
+    const safeFriends = profile.friends.slice(0, 30);
+    const q = query(collection(db, 'users'), where(documentId(), 'in', safeFriends));
+    return onSnapshot(
+      q,
+      (s) => setFriendsList(s.docs.map(d => d.data() as UserProfile)),
+      (err) => console.warn('Friends list listener warning:', err)
+    );
   }, [profile?.friends]);
 
   useEffect(() => {
@@ -1452,7 +1482,11 @@ export const ProfilePage: React.FC<{
       where('receiverId', '==', effectiveUserId),
       where('status', '==', 'pending')
     );
-    return onSnapshot(q, (s) => setRequestItemPending(!s.empty));
+    return onSnapshot(
+      q,
+      (s) => setRequestItemPending(!s.empty),
+      (err) => console.warn('Friend request item pending listener error:', err)
+    );
   }, [user, effectiveUserId, isOwnProfile]);
 
   const handleContact = async () => {
