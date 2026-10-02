@@ -30,6 +30,7 @@ import {
   AtSign
 } from 'lucide-react';
 import { Notification, UserProfile, Trip } from '../types';
+import { OfficialBadge } from '../components/OfficialBadge';
 
 interface NotificationsPageProps {
   onTripClick: (id: string) => void;
@@ -410,14 +411,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                 {/* Content & Action Text */}
                 <div className="flex-1 min-w-0 pr-1">
                   <p className="text-[13px] leading-snug text-apple-gray-900">
-                    <span 
-                      className="font-bold cursor-pointer hover:text-[#0081d1] transition-colors inline-block mr-1"
+                    <span
+                      className="font-bold cursor-pointer hover:text-[#0081d1] transition-colors inline-flex items-center gap-1 mr-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (n.fromId) onUserClick(n.fromId);
                       }}
                     >
-                      {n.fromProfile?.displayName || '用戶'}
+                      <span>{n.fromProfile?.displayName || '用戶'}</span>
+                      <OfficialBadge profile={n.fromProfile} size={11} />
                     </span>
 
                     {/* Friend Request */}
