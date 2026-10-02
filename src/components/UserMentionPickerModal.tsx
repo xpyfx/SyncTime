@@ -3,6 +3,7 @@ import { Search, X, AtSign, Check, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { GlassSearchInput } from './GlassSearchInput';
+import { OfficialBadge } from './OfficialBadge';
 
 interface UserMentionPickerModalProps {
   isOpen: boolean;
@@ -111,6 +112,7 @@ export const UserMentionPickerModal: React.FC<UserMentionPickerModalProps> = ({
                           <span className="font-bold text-sm text-apple-gray-900 group-hover:text-[#035096] truncate">
                             {user.displayName || '用戶'}
                           </span>
+                          <OfficialBadge profile={user} size={12} />
                         </div>
                         <p className="text-xs text-[#035096] font-medium truncate">
                           {tagHandle}
