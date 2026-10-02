@@ -28,7 +28,12 @@ export default defineConfig(() => {
               if (id.includes('firebase')) {
                 return 'vendor-firebase';
               }
-              if (id.includes('@vis.gl') || id.includes('leaflet')) {
+              if (
+                id.includes('@vis.gl') ||
+                id.includes('leaflet') ||
+                id.includes('maplibre-gl') ||
+                id.includes('@maplibre')
+              ) {
                 return 'vendor-maps';
               }
             }

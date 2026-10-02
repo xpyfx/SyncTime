@@ -5,6 +5,18 @@ import zh from 'i18n-iso-countries/langs/zh.json';
 import { Stay } from '../types';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
+import { setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+setWorkerUrl(workerUrl);
+
+const OPENFREEMAP_STYLE =
+  'https://tiles.openfreemap.org/styles/liberty';
+
+const ESRI_SATELLITE_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 import { MapPin, Globe, Compass, Eye, Map, Calendar, Locate } from 'lucide-react';
 
 // Register Chinese locale for country ISO translation
@@ -291,7 +303,7 @@ function codeToEmoji(code: string): string {
 export default function TravelGlobe({ stays, onSelectStay }: TravelGlobeProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const baseLayerRef = useRef<L.Layer | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
   
@@ -434,15 +446,34 @@ export default function TravelGlobe({ stays, onSelectStay }: TravelGlobeProps) {
       .filter(s => !isNaN(s.lat) && !isNaN(s.lng));
   }, [stays]);
 
-  // Handle map style configurations
-  const styleUrls: Record<'apple' | 'google', string> = {
-    apple: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    google: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  };
+  const createBaseLayer = (
+    map: L.Map,
+    style: 'apple' | 'google'
+  ) => {
+    if (baseLayerRef.current) {
+      map.removeLayer(baseLayerRef.current);
+      baseLayerRef.current = null;
+    }
 
-  const styleAttributions: Record<'apple' | 'google', string> = {
-    apple: '&copy; CartoDB Voyager',
-    google: 'Tiles &copy; Esri',
+    if (style === 'apple') {
+      const layer = maplibreGL({
+        style: OPENFREEMAP_STYLE
+      });
+
+      layer.addTo(map);
+      baseLayerRef.current = layer;
+      return;
+    }
+
+    const layer = L.tileLayer(
+      ESRI_SATELLITE_URL,
+      {
+        attribution: 'Tiles © Esri'
+      }
+    );
+
+    layer.addTo(map);
+    baseLayerRef.current = layer;
   };
 
   // Initialize Map
@@ -466,16 +497,10 @@ export default function TravelGlobe({ stays, onSelectStay }: TravelGlobeProps) {
     });
 
     mapRef.current = mapInstance;
+    createBaseLayer(mapInstance, 'apple');
 
     // Add scale indicator
     L.control.scale({ position: 'bottomleft', imperial: false }).addTo(mapInstance);
-
-    // Initial tile layer setup
-    const initialStyle = (mapStyle === 'calendar' ? 'apple' : mapStyle) as 'apple' | 'google';
-    const layer = L.tileLayer(styleUrls[initialStyle], {
-      attribution: styleAttributions[initialStyle]
-    }).addTo(mapInstance);
-    tileLayerRef.current = layer;
 
     // Initialize layer group for pins
     const markersGroup = L.layerGroup().addTo(mapInstance);
@@ -483,22 +508,25 @@ export default function TravelGlobe({ stays, onSelectStay }: TravelGlobeProps) {
 
     // Clean up on component destruction
     return () => {
+      baseLayerRef.current = null;
       mapInstance.remove();
       mapRef.current = null;
       userLocationMarkerRef.current = null;
     };
   }, []);
 
-  // Update Tile Layer when MapStyle changes
   useEffect(() => {
-    if (!mapRef.current || !tileLayerRef.current) return;
-    if (mapStyle !== 'calendar') {
-      const activeStyle = mapStyle as 'apple' | 'google';
-      tileLayerRef.current.setUrl(styleUrls[activeStyle]);
-      setTimeout(() => {
-        mapRef.current?.invalidateSize();
-      }, 50);
-    }
+    if (!mapRef.current) return;
+    if (mapStyle === 'calendar') return;
+
+    createBaseLayer(
+      mapRef.current,
+      mapStyle as 'apple' | 'google'
+    );
+
+    setTimeout(() => {
+      mapRef.current?.invalidateSize();
+    }, 100);
   }, [mapStyle]);
 
   // Plot stays, paths, and fly to center as the stays record updates
@@ -842,7 +870,9 @@ export default function TravelGlobe({ stays, onSelectStay }: TravelGlobeProps) {
 
       {mapStyle !== 'calendar' && (
         <div className="absolute bottom-3 left-3 z-25 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-[8px] text-white/80 pointer-events-none">
-          {mapStyle === 'apple' ? 'Carto Voyager Style' : 'Esri Satellite Imagery'}
+          {mapStyle === 'apple'
+            ? 'OpenFreeMap © OpenMapTiles · Data from OpenStreetMap'
+            : 'Esri Satellite Imagery'}
         </div>
       )}
 
