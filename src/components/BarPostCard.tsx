@@ -11,7 +11,6 @@ import {
   Check, 
   Flame, 
   Sparkles, 
-  Heart,
   CornerDownRight,
   Reply,
   X
@@ -394,10 +393,10 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
               type="button"
               onClick={handleToggleLike}
               className={`flex items-center gap-1 font-semibold transition-all active:scale-90 ${
-                isLiked ? 'text-rose-500 font-bold' : 'hover:text-rose-500 text-apple-gray-400'
+                isLiked ? 'text-apple-blue font-bold' : 'hover:text-apple-blue text-apple-gray-400'
               }`}
             >
-              <Heart size={12} fill={isLiked ? "currentColor" : "none"} strokeWidth={2.2} />
+              <ThumbsUp size={12} fill={isLiked ? "currentColor" : "none"} strokeWidth={2.2} />
               <span>{likesCount > 0 ? `${likesCount} 讚` : '讚'}</span>
             </button>
 
@@ -488,10 +487,10 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                       type="button"
                       onClick={() => handleToggleReplyLike(r)}
                       className={`flex items-center gap-1 font-semibold transition-all active:scale-90 ${
-                        isReplyLiked ? 'text-rose-500 font-bold' : 'hover:text-rose-500 text-apple-gray-400'
+                        isReplyLiked ? 'text-apple-blue font-bold' : 'hover:text-apple-blue text-apple-gray-400'
                       }`}
                     >
-                      <Heart size={10} fill={isReplyLiked ? "currentColor" : "none"} />
+                      <ThumbsUp size={10} fill={isReplyLiked ? "currentColor" : "none"} strokeWidth={2.2} />
                       <span>{rLikesCount > 0 ? `${rLikesCount} 讚` : '讚'}</span>
                     </button>
 
