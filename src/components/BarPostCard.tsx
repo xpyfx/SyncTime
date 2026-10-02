@@ -42,6 +42,8 @@ import { ReportModal } from './ReportModal';
 import { FormattedPostText } from './FormattedPostText';
 import { InAppBrowserModal } from './InAppBrowserModal';
 import { ShareBarPostModal } from './ShareBarPostModal';
+import { OfficialBadge } from './OfficialBadge';
+import { UserMentionPickerModal } from './UserMentionPickerModal';
 
 interface BarPostCardProps {
   post: BarPost;
@@ -64,6 +66,7 @@ interface BarCommentItemProps {
   onAvatarClick?: (uid: string) => void;
   onLinkClick: (url: string) => void;
   onMentionClick: (username: string) => void;
+  mentionUsers: UserProfile[];
 }
 
 const BarCommentItem: React.FC<BarCommentItemProps> = ({
@@ -73,7 +76,8 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
   commentAuthor,
   onAvatarClick,
   onLinkClick,
-  onMentionClick
+  onMentionClick,
+  mentionUsers
 }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
@@ -81,6 +85,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isPostingReply, setIsPostingReply] = useState(false);
+  const [showReplyMentionPicker, setShowReplyMentionPicker] = useState(false);
   const [replies, setReplies] = useState<BarCommentReply[]>([]);
   const [replyAuthors, setReplyAuthors] = useState<Record<string, UserProfile>>({});
   const [likedReplyIds, setLikedReplyIds] = useState<Set<string>>(new Set());
