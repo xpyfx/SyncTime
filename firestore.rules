@@ -44,7 +44,9 @@ service cloud.firestore {
     }
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow create: if isOwner(userId)
+        && isValidUser(request.resource.data)
+        && request.resource.data.get('isOfficial', false) == false;
       allow update: if isSignedIn() && (
   (
     isOwner(userId) &&
@@ -144,6 +146,10 @@ service cloud.firestore {
             && data.get('residence', '') is string && data.get('residence', '').size() < 200
             && data.get('visitedCities', 0) is number
             && data.get('bio', '') is string && data.get('bio', '').size() <= 2000
+            && (
+              data.get('isOfficial', false) == true ||
+              data.get('isOfficial', false) == false
+            )
             && (
               !('pushNotificationPreferences' in data)
               ||
