@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Check,
@@ -91,6 +92,17 @@ export const ShareTripModal: React.FC<ShareTripModalProps> = ({
     const timer = window.setTimeout(() => setToast(null), 1800);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   const tripShareUrl = useMemo(() => {
     if (!trip || typeof window === 'undefined') return '';
@@ -205,16 +217,17 @@ export const ShareTripModal: React.FC<ShareTripModalProps> = ({
     }
   };
 
-  if (!isOpen || !trip) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
+      {isOpen && trip && (
       <motion.div
         key="trip-share-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[140] bg-black/45 backdrop-blur-[2px] flex items-end justify-center"
+        className="fixed inset-0 z-[9999] bg-black/45 backdrop-blur-[2px] flex items-end justify-center overscroll-none"
         onClick={onClose}
       >
         <motion.div
@@ -223,7 +236,7 @@ export const ShareTripModal: React.FC<ShareTripModalProps> = ({
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 330 }}
           onClick={event => event.stopPropagation()}
-          className="w-full max-w-md bg-white rounded-t-[30px] shadow-2xl border-t border-apple-gray-100 pb-[max(env(safe-area-inset-bottom,0px),18px)] overflow-hidden"
+          className="w-full max-w-md max-h-[82dvh] bg-white rounded-t-[30px] shadow-2xl border-t border-apple-gray-100 pb-[max(env(safe-area-inset-bottom,0px),18px)] overflow-y-auto overscroll-contain no-scrollbar"
         >
           <div className="pt-2.5 pb-2">
             <div className="w-10 h-1 rounded-full bg-apple-gray-200 mx-auto" />
@@ -376,6 +389,8 @@ export const ShareTripModal: React.FC<ShareTripModalProps> = ({
           </AnimatePresence>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 };
