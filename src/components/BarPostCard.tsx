@@ -363,9 +363,10 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
               <button
                 type="button"
                 onClick={() => onAvatarClick?.(comment.authorId)}
-                className="font-bold text-[11px] text-apple-gray-900 text-left hover:text-[#035096] transition-colors cursor-pointer outline-none truncate"
+                className="font-bold text-[11px] text-apple-gray-900 text-left hover:text-[#035096] transition-colors cursor-pointer outline-none truncate inline-flex items-center gap-1"
               >
-                {commentAuthor?.displayName || '用戶'}
+                <span className="truncate">{commentAuthor?.displayName || '用戶'}</span>
+                <OfficialBadge profile={commentAuthor} size={11} />
               </button>
               <span className="text-[9px] text-apple-gray-400 font-medium shrink-0">
                 {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : '剛剛'}
@@ -406,6 +407,17 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
               <Reply size={12} strokeWidth={2.2} />
               <span>回覆</span>
             </button>
+
+            {user?.uid === comment.authorId && (
+              <button
+                type="button"
+                onClick={handleDeleteComment}
+                className="flex items-center gap-1 font-semibold text-apple-gray-300 hover:text-red-500 active:scale-95 transition-all"
+              >
+                <Trash2 size={11} />
+                <span>刪除</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -441,9 +453,10 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                         <button
                           type="button"
                           onClick={() => onAvatarClick?.(r.authorId)}
-                          className="font-bold text-[10px] text-apple-gray-800 hover:text-[#035096] transition-colors truncate"
+                          className="font-bold text-[10px] text-apple-gray-800 hover:text-[#035096] transition-colors truncate inline-flex items-center gap-1"
                         >
-                          {replyAuthor?.displayName || '用戶'}
+                          <span className="truncate">{replyAuthor?.displayName || '用戶'}</span>
+                          <OfficialBadge profile={replyAuthor} size={10} />
                         </button>
                         {r.replyToAuthorName && (
                           <span className="text-[9px] text-[#035096] font-medium shrink-0">
@@ -478,6 +491,17 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                       <Heart size={10} fill={isReplyLiked ? "currentColor" : "none"} />
                       <span>{rLikesCount > 0 ? `${rLikesCount} 讚` : '讚'}</span>
                     </button>
+
+                    {user?.uid === r.authorId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReply(r)}
+                        className="flex items-center gap-1 font-semibold text-apple-gray-300 hover:text-red-500 active:scale-95 transition-all"
+                      >
+                        <Trash2 size={10} />
+                        <span>刪除</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -496,6 +520,14 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
             className="ml-9 pt-1.5 overflow-hidden"
           >
             <div className="flex items-center gap-1.5 p-1 bg-apple-gray-50 rounded-full border border-apple-gray-200/80 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setShowReplyMentionPicker(true)}
+                className="w-7 h-7 rounded-full bg-white border border-apple-gray-200 text-[#035096] font-black text-sm flex items-center justify-center shrink-0"
+                title="標註用戶"
+              >
+                @
+              </button>
               <input
                 autoFocus
                 value={replyText}
@@ -507,7 +539,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                   }
                 }}
                 placeholder={`回覆 @${commentAuthor?.displayName || '用戶'}...`}
-                className="flex-1 bg-transparent px-3 text-xs focus:outline-none text-apple-gray-800 placeholder:text-apple-gray-400 min-w-0"
+                className="flex-1 bg-transparent px-2 text-xs focus:outline-none text-apple-gray-800 placeholder:text-apple-gray-400 min-w-0"
               />
               <button
                 type="button"
@@ -532,6 +564,22 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <UserMentionPickerModal
+        isOpen={showReplyMentionPicker}
+        onClose={() => setShowReplyMentionPicker(false)}
+        users={mentionUsers}
+        title="標註 SyncTime 用戶"
+        onSelectUser={target => {
+          const handle = target.username || target.displayName;
+          setReplyText(previous =>
+            previous
+              ? `${previous} @${handle} `
+              : `@${handle} `
+          );
+          setShowReplyMentionPicker(false);
+        }}
+      />
     </div>
   );
 };
