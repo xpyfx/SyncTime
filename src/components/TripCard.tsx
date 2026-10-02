@@ -4,6 +4,7 @@ import { Trip, UserProfile } from '../types';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import { OfficialBadge } from './OfficialBadge';
 
 interface TripCardProps {
   trip: Trip;
@@ -85,8 +86,9 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
             )}
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-xs tracking-tight group-hover:underline">
-              {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '載入中...')}
+            <span className="font-bold text-xs tracking-tight group-hover:underline inline-flex items-center gap-1">
+              <span>{isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '載入中...')}</span>
+              {!isDeletedAuthor && <OfficialBadge profile={author} size={12} />}
             </span>
             <span className="text-[10px] text-apple-gray-300 font-medium">
               {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
