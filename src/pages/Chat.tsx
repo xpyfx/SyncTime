@@ -10,6 +10,7 @@ import { GlassSendButton } from '../components/GlassSendButton';
 import { GoogleMapsLocationModal } from '../components/GoogleMapsLocationModal';
 import { GoogleMapsLocationCard } from '../components/GoogleMapsLocationCard';
 import { SharedBarPostCard } from '../components/SharedBarPostCard';
+import { SharedTripCard } from '../components/SharedTripCard';
 
 const makeDeletedUserProfile = (uid: string): UserProfile => ({
   uid,
@@ -3825,6 +3826,16 @@ React.useLayoutEffect(() => {
                       msgTime={msgTime}
                       isMe={isMe}
                       onViewTrip={(tripId) => onBackToTrip?.(tripId)}
+                    />
+                  ) : (m.sharedTrip || m.sharedTripId) ? (
+                    <SharedTripCard
+                      sharedTrip={m.sharedTrip}
+                      tripId={m.sharedTripId || m.sharedTrip?.tripId || ''}
+                      msgTime={msgTime}
+                      onViewTrip={(tripId) => {
+                        onBack();
+                        onBackToTrip?.(tripId);
+                      }}
                     />
                   ) : (m.sharedPost || m.sharedPostId) ? (
                     <SharedBarPostCard
