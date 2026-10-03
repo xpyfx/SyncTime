@@ -43,6 +43,7 @@ import { InAppBrowserModal } from './InAppBrowserModal';
 import { ShareBarPostModal } from './ShareBarPostModal';
 import { OfficialBadge } from './OfficialBadge';
 import { UserMentionPickerModal } from './UserMentionPickerModal';
+import { PulseLikeButton } from './PulseLikeButton';
 
 interface BarPostCardProps {
   post: BarPost;
@@ -1149,13 +1150,14 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
           )}
 
           <div className="flex items-center gap-7 pt-2 text-apple-gray-300">
-            <button 
+            <PulseLikeButton
+              liked={isLiked}
+              count={likesCount}
               onClick={handleToggleLike}
-              className={`flex items-center gap-1.5 active:scale-90 transition-transform ${isLiked ? 'text-apple-blue' : 'hover:text-apple-blue'}`}
-            >
-              <ThumbsUp size={20} fill={isLiked ? "currentColor" : "none"} strokeWidth={2} />
-              {likesCount > 0 && <span className="text-[11px] font-bold">{likesCount}</span>}
-            </button>
+              className={isLiked ? 'text-apple-blue' : 'hover:text-apple-blue'}
+              size={20}
+              label="點讚"
+            />
             <button 
               onClick={() => setShowComments(!showComments)}
               className={`flex items-center gap-1.5 active:scale-90 transition-transform ${showComments ? 'text-apple-blue' : 'hover:text-apple-blue'}`}
