@@ -21,7 +21,11 @@ export const SharedBarPostCard: React.FC<SharedBarPostCardProps> = ({
   const authorAvatar = sharedPost?.authorAvatar;
   const authorUsername = sharedPost?.authorUsername;
   const content = sharedPost?.content || '';
-  const imageUrl = sharedPost?.imageUrl || sharedPost?.images?.[0];
+  const firstMedia =
+    sharedPost?.media?.[0] ||
+    (sharedPost?.imageUrl || sharedPost?.images?.[0]
+      ? { type: 'image' as const, url: sharedPost?.imageUrl || sharedPost?.images?.[0] || '' }
+      : null);
   const likesCount = sharedPost?.likesCount || 0;
   const commentsCount = sharedPost?.commentsCount || 0;
 
@@ -77,14 +81,24 @@ export const SharedBarPostCard: React.FC<SharedBarPostCardProps> = ({
         </p>
       )}
 
-      {/* Post Image Thumbnail */}
-      {imageUrl && (
+      {/* Post Media Thumbnail */}
+      {firstMedia?.url && (
         <div className="w-full h-32 rounded-xl bg-apple-gray-100 overflow-hidden mb-2 border border-apple-gray-100">
-          <img 
-            src={imageUrl} 
-            alt="" 
-            className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
-          />
+          {firstMedia.type === 'video' ? (
+            <video
+              src={firstMedia.url}
+              muted
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <img
+              src={firstMedia.url}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+            />
+          )}
         </div>
       )}
 
