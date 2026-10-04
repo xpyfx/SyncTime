@@ -182,8 +182,11 @@ export const PopularTravelBarSection: React.FC<PopularTravelBarSectionProps> = (
       <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 px-1 snap-x snap-mandatory">
         {popularPosts.map((post, idx) => {
           const author = authors[post.authorId];
-          const hasImage = post.imageUrl || (post.images && post.images.length > 0);
-          const displayImg = post.imageUrl || post.images?.[0];
+          const firstMedia =
+            post.media?.[0] ||
+            (post.imageUrl || post.images?.[0]
+              ? { type: 'image' as const, url: post.imageUrl || post.images?.[0] || '' }
+              : null);
           const commentsCount = post.commentsCount || 0;
           const likesCount = post.likesCount || 0;
 
@@ -254,15 +257,32 @@ export const PopularTravelBarSection: React.FC<PopularTravelBarSectionProps> = (
                   {post.content}
                 </p>
 
-                {/* Image preview thumbnail if present */}
-                {hasImage && displayImg && (
-                  <div className="w-full h-24 rounded-2xl overflow-hidden mb-3 bg-apple-gray-50 border border-black/5">
-                    <img
-                      src={displayImg}
-                      alt="貼文配圖"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                    />
+                {/* Media preview thumbnail if present */}
+                {firstMedia?.url && (
+                  <div className="w-full h-24 rounded-2xl overflow-hidden mb-3 bg-apple-gray-50 border border-black/5 relative">
+                    {firstMedia.type === 'video' ? (
+                      <>
+                        <video
+                          src={firstMedia.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center pointer-events-none">
+                          <div className="w-8 h-8 rounded-full bg-black/45 text-white flex items-center justify-center">
+                            <span className="text-[10px] font-black ml-0.5">▶</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={firstMedia.url}
+                        alt="貼文配圖"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                      />
+                    )}
                   </div>
                 )}
               </div>
