@@ -4,6 +4,7 @@ import { Flame, MessageCircle, ThumbsUp, Bookmark, ChevronRight, Sparkles, Send,
 import { collection, query, orderBy, onSnapshot, getDoc, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BarPost, UserProfile } from '../types';
+import { TranslatedUserText } from './TranslatedUserText';
 import { useAuth } from '../context/AuthContext';
 
 interface PopularTravelBarSectionProps {
@@ -253,9 +254,18 @@ export const PopularTravelBarSection: React.FC<PopularTravelBarSectionProps> = (
                 </div>
 
                 {/* Content snippet */}
-                <p className="text-[13px] text-apple-gray-800 leading-relaxed font-normal line-clamp-3 mb-3 group-hover:text-apple-gray-950 transition-colors">
-                  {post.content}
-                </p>
+                <TranslatedUserText
+                  text={post.content}
+                  originalLanguage={post.originalLanguage}
+                  compact
+                  className="mb-3"
+                >
+                  {(translatedText) => (
+                    <p className="text-[13px] text-apple-gray-800 leading-relaxed font-normal line-clamp-3 group-hover:text-apple-gray-950 transition-colors">
+                      {translatedText}
+                    </p>
+                  )}
+                </TranslatedUserText>
 
                 {/* Media preview thumbnail if present */}
                 {firstMedia?.url && (
