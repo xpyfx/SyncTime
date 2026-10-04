@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, OAuthProvider, signOut, deleteUser, reauthenticateWithPopup } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
@@ -626,20 +626,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const blockUser = async (targetUid: string) => {
-    if (!user) return;
+    if (!user || !targetUid || targetUid === user.uid) return;
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         blockedUsers: arrayUnion(targetUid),
         friends: arrayRemove(targetUid)
       });
-      // Try to remove from target's friends list as well
+
+      // Blocking is mutual in the UI. Also remove the friendship on the other
+      // profile so an unblock never silently restores a previous friendship.
       try {
         await updateDoc(doc(db, 'users', targetUid), {
           friends: arrayRemove(user.uid)
         });
       } catch {
-        // May fail if security rules forbid modifying other users, harmless
+        // The block itself is already saved even if the reciprocal cleanup fails.
       }
+
+      // A block cancels any pending friend requests between the two accounts.
+      // These should NOT come back when the block is later removed.
+      try {
+        const [sentSnap, receivedSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, 'friendRequests'),
+            where('senderId', '==', user.uid),
+            where('receiverId', '==', targetUid),
+            where('status', '==', 'pending')
+          )),
+          getDocs(query(
+            collection(db, 'friendRequests'),
+            where('senderId', '==', targetUid),
+            where('receiverId', '==', user.uid),
+            where('status', '==', 'pending')
+          ))
+        ]);
+
+        await Promise.all(
+          [...sentSnap.docs, ...receivedSnap.docs].map(requestDoc =>
+            deleteDoc(requestDoc.ref)
+          )
+        );
+      } catch (requestCleanupError) {
+        console.warn('Failed to clear pending friend requests after block:', requestCleanupError);
+      }
+
       setProfile(prev => prev ? {
         ...prev,
         blockedUsers: [...(prev.blockedUsers || []).filter(id => id !== targetUid), targetUid],
@@ -667,13 +697,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isUserBlocked = (targetUid: string) => {
+  const isUserBlocked = useCallback((targetUid: string) => {
     if (!targetUid || !user) return false;
     if (targetUid === user.uid) return false;
     const isBlockedByMe = (profile?.blockedUsers || []).includes(targetUid);
     const isBlockedByThem = (blockedByUsers || []).includes(targetUid);
     return isBlockedByMe || isBlockedByThem;
-  };
+  }, [user?.uid, profile?.blockedUsers, blockedByUsers]);
 
   return (
     <AuthContext.Provider
