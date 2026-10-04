@@ -21,6 +21,7 @@ import {
   PostMediaKind
 } from '../lib/postMedia';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { detectTextLanguage } from '../lib/translation';
 
 const MEDIA_UPLOAD_DIAGNOSTIC_MODE = true;
 
@@ -434,6 +435,9 @@ export const TravelBarView: React.FC<{
         return;
       }
       const content = newPostContent.trim();
+      const originalLanguage = content
+        ? await detectTextLanguage(content)
+        : 'und';
       const tags = extractHashtags(content);
 
       const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
@@ -500,6 +504,7 @@ export const TravelBarView: React.FC<{
       await setDoc(postRef, {
         authorId: user.uid,
         content,
+        originalLanguage,
         tags: tags.length > 0 ? tags : [],
         mentionedUsers: mentionedUserIds,
         media: uploadedMedia,
