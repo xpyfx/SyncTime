@@ -159,24 +159,38 @@ export const TravelBarView: React.FC<{
       if (!result.allowed) {
         window.alert('您上傳的照片可能違反使用者安全政策！');
       }
-    } catch (error) {
-      console.error('Media safety moderation failed:', error);
+    } catch (error: any) {
+      console.error(
+        'Media safety moderation failed:',
+        error?.code || error?.message,
+        error?.details || ''
+      );
 
-      // A service/network/model error is not a policy violation.
-      // Keep the user's media visible and offer a retry instead of hiding it.
+      const missingApiKey =
+        error?.code === 'GEMINI_API_KEY_MISSING' ||
+        error?.message === 'GEMINI_API_KEY_MISSING';
+
+      // A service/network/configuration error is not a policy violation.
+      // Keep the user's media visible and never label it as unsafe.
       setDraftMedia(previous =>
         previous.map(current =>
           current.id === item.id
             ? {
                 ...current,
                 status: 'error',
-                reason: '安全檢測暫時無法完成'
+                reason: missingApiKey
+                  ? '安全檢測服務尚未設定'
+                  : '安全檢測暫時無法完成'
               }
             : current
         )
       );
 
-      window.alert('安全檢測暫時無法完成，照片不會被判定為違規。請稍後重新檢測。');
+      window.alert(
+        missingApiKey
+          ? '安全檢測服務尚未設定完成，照片並未被判定為違規。'
+          : '安全檢測暫時無法完成，照片不會被判定為違規。請稍後重新檢測。'
+      );
     }
   };
 
@@ -987,7 +1001,9 @@ export const TravelBarView: React.FC<{
                         <div className="absolute inset-x-1.5 bottom-1.5 rounded-xl bg-amber-50/95 border border-amber-200 shadow-sm px-2 py-1.5 backdrop-blur-sm">
                           <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[9px] font-bold text-amber-700 leading-tight">
-                              檢測暫時失敗，未判定違規
+                              {item.reason === '安全檢測服務尚未設定'
+                                ? '安全檢測服務尚未設定'
+                                : '檢測暫時失敗，未判定違規'}
                             </span>
                             <button
                               type="button"
