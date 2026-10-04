@@ -117,6 +117,7 @@ IMPORTANT DECISION RULES:
 - If the content is ambiguous or you are not confident, ALLOW.
 - Only recommend BLOCK when confidence is at least 0.80 that a listed category is visibly present.
 - For video, all supplied images are sampled frames from the same clip. Evaluate them together.
+- The reason field MUST be written in Traditional Chinese (zh-Hant-TW), never Simplified Chinese.
 - Return only the structured classification requested by the schema.
 `;
 
@@ -385,8 +386,8 @@ async function startServer() {
             `\nMedia type: ${mediaType}. Review all ${normalizedFrames.length} frame(s).`
         },
         ...normalizedFrames.map((data: string) => ({
-          inlineData: {
-            mimeType: 'image/jpeg',
+          inline_data: {
+            mime_type: 'image/jpeg',
             data
           }
         }))
