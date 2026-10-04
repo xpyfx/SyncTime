@@ -81,25 +81,43 @@ function getAIClient(): GoogleGenAI {
 }
 
 const MEDIA_SAFETY_PROMPT = `
-You are a strict visual safety classifier for a travel social app.
-Review every supplied image frame. Return ONLY one compact JSON object with this shape:
-{"unsafe":boolean,"categories":string[],"reason":"short Traditional Chinese explanation"}
+You are a visual safety classifier for a travel social app.
 
-Mark unsafe=true when the media clearly contains or meaningfully depicts any of the following:
-- explicit sexual content, nudity intended for sexual display, pornography
-- sexualized or sexually suggestive content
-- graphic violence, severe injury, gore, visible blood presented graphically
-- cruelty, torture, or abuse of animals
-- illegal drug use, preparation, sale, or prominent drug paraphernalia
-- self-harm, suicide attempts, or instructions/promotional depictions of self-harm
-- sexualization or exploitation of minors
-- extremist or hate imagery that promotes violence or dehumanization
-- dangerous acts that encourage serious physical harm
+Your job is NOT to be broadly cautious. Normal user photos and videos must be ALLOWED.
+Only BLOCK when there is clear visual evidence of one or more policy categories below.
 
-Do not flag ordinary travel scenes, food, landscapes, consensual non-sexual affection,
-ordinary swimwear, tattoos, medical settings without graphic injury, or alcohol by themselves.
-When uncertain and there is no clear policy issue, use unsafe=false.
-For video, the images are sampled frames from the same clip, so evaluate them together.
+BLOCK categories:
+1. sexual_explicit:
+   Pornography, explicit sexual acts, exposed genitals presented sexually, explicit sexual activity.
+2. sexual_suggestive:
+   Clearly sexualized posing or content whose primary purpose is sexual arousal.
+   Do NOT include ordinary swimwear, beach photos, fashion, fitness, breastfeeding,
+   non-sexual affection, or ordinary portraits.
+3. graphic_violence:
+   Graphic gore, severe visible wounds, dismemberment, mutilation, or prominent blood from serious violence.
+   Do NOT include ordinary sports, minor scrapes, tattoos, action poses, toy weapons, or non-graphic medical scenes.
+4. animal_abuse:
+   Clear cruelty, torture, intentional injury, or killing of an animal.
+   Do NOT include normal pets, wildlife, zoos, farms, fishing scenery, or cooked food.
+5. drugs:
+   Clear illegal drug consumption, preparation, manufacturing, or sale, or unmistakable illegal-drug paraphernalia
+   being used for drugs. Do NOT block ordinary medicine, pharmacies, legal beverages, food, or ambiguous objects.
+6. self_harm:
+   Clear self-harm, suicide attempts, self-inflicted serious injury, or instructional/promotional self-harm content.
+7. child_sexual_exploitation:
+   Any sexualization, sexual exploitation, or explicit sexual content involving minors.
+8. hate_extremist_violence:
+   Clear promotion, glorification, recruitment, or violent extremist/hate propaganda.
+   Incidental historical/documentary context without promotion should be allowed.
+
+IMPORTANT DECISION RULES:
+- Default to ALLOW.
+- Do not infer a violation from clothing, body shape, ethnicity, tattoos, medical context,
+  dark lighting, red-colored objects, fictional art style, or ambiguous objects.
+- If the content is ambiguous or you are not confident, ALLOW.
+- Only recommend BLOCK when confidence is at least 0.80 that a listed category is visibly present.
+- For video, all supplied images are sampled frames from the same clip. Evaluate them together.
+- Return only the structured classification requested by the schema.
 `;
 
 const parseModerationJson = (raw: string) => {
@@ -117,6 +135,43 @@ const parseModerationJson = (raw: string) => {
 
   return JSON.parse(cleaned.slice(start, end + 1));
 };
+
+const MEDIA_MODERATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    decision: {
+      type: 'string',
+      enum: ['allow', 'block']
+    },
+    confidence: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1
+    },
+    categories: {
+      type: 'array',
+      items: {
+        type: 'string',
+        enum: [
+          'sexual_explicit',
+          'sexual_suggestive',
+          'graphic_violence',
+          'animal_abuse',
+          'drugs',
+          'self_harm',
+          'child_sexual_exploitation',
+          'hate_extremist_violence'
+        ]
+      }
+    },
+    reason: {
+      type: 'string'
+    }
+  },
+  required: ['decision', 'confidence', 'categories', 'reason']
+};
+
+const MEDIA_CLASSIFIER_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash'];
 
 function getSyncTimeKnowledgeResponse(query: string): string {
   const q = query.toLowerCase().trim();
@@ -327,50 +382,110 @@ async function startServer() {
         }))
       ];
 
-      let responseText = '';
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: [{ role: 'user', parts }],
-          config: {
-            temperature: 0,
-            topP: 0.1
-          }
-        });
-        responseText = response.text || '';
-      } catch (error: any) {
-        const message = String(error?.message || error || '');
-        const safetyBlocked =
-          /safety|blocked|prohibited|policy/i.test(message);
+      let parsed: any = null;
+      let lastServiceError: unknown = null;
 
-        if (safetyBlocked) {
-          return res.json({
-            allowed: false,
-            categories: ['safety_filter'],
-            reason: '內容被安全系統攔截'
+      for (const model of MEDIA_CLASSIFIER_MODELS) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: [{ role: 'user', parts }],
+            config: {
+              temperature: 0,
+              topP: 0.1,
+              responseMimeType: 'application/json',
+              responseSchema: MEDIA_MODERATION_SCHEMA,
+              // The classifier itself must be able to inspect borderline inputs.
+              // Core protections (for example child safety) still cannot be disabled by the API.
+              safetySettings: [
+                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' }
+              ]
+            }
           });
+
+          const responseText = response.text || '';
+          if (!responseText) {
+            const finishReason = response.candidates?.[0]?.finishReason;
+            if (finishReason === 'SAFETY') {
+              return res.json({
+                allowed: false,
+                decision: 'block',
+                confidence: 1,
+                categories: ['child_sexual_exploitation'],
+                reason: '內容被核心安全系統攔截'
+              });
+            }
+            throw new Error('EMPTY_MODERATION_RESPONSE');
+          }
+
+          parsed = parseModerationJson(responseText);
+          break;
+        } catch (error: any) {
+          lastServiceError = error;
+          const message = String(error?.message || error || '');
+
+          // A core model safety refusal is treated as an actual block.
+          // Other API/network/schema errors are NOT violations and must not be mislabeled as one.
+          if (/finish.?reason.?[:= ]*safety|child safety|csam/i.test(message)) {
+            return res.json({
+              allowed: false,
+              decision: 'block',
+              confidence: 1,
+              categories: ['child_sexual_exploitation'],
+              reason: '內容被核心安全系統攔截'
+            });
+          }
+
+          console.warn(`Media moderation model ${model} failed; trying fallback:`, message);
         }
-
-        console.error('Media moderation service failed:', error);
-        return res.status(503).json({ error: 'media moderation unavailable' });
       }
 
-      let parsed: any;
-      try {
-        parsed = parseModerationJson(responseText);
-      } catch (error) {
-        console.warn('Could not parse media moderation response:', responseText);
-        return res.status(503).json({ error: 'invalid moderation response' });
+      if (!parsed) {
+        console.error('All media moderation models failed:', lastServiceError);
+        return res.status(503).json({
+          error: 'media moderation unavailable',
+          retryable: true
+        });
       }
 
-      const unsafe = parsed?.unsafe === true;
+      const confidence =
+        typeof parsed?.confidence === 'number'
+          ? Math.max(0, Math.min(1, parsed.confidence))
+          : 0;
+
       const categories = Array.isArray(parsed?.categories)
-        ? parsed.categories.map((value: unknown) => String(value)).slice(0, 12)
+        ? parsed.categories
+            .map((value: unknown) => String(value))
+            .filter((value: string) =>
+              [
+                'sexual_explicit',
+                'sexual_suggestive',
+                'graphic_violence',
+                'animal_abuse',
+                'drugs',
+                'self_harm',
+                'child_sexual_exploitation',
+                'hate_extremist_violence'
+              ].includes(value)
+            )
+            .slice(0, 8)
         : [];
 
+      // Critical rule: ambiguous/low-confidence classifications are allowed.
+      // Only an explicit block with a listed category AND >= 0.80 confidence is hidden.
+      const shouldBlock =
+        parsed?.decision === 'block' &&
+        confidence >= 0.8 &&
+        categories.length > 0;
+
       return res.json({
-        allowed: !unsafe,
-        categories,
+        allowed: !shouldBlock,
+        decision: shouldBlock ? 'block' : 'allow',
+        confidence,
+        categories: shouldBlock ? categories : [],
         reason:
           typeof parsed?.reason === 'string'
             ? parsed.reason.slice(0, 240)
