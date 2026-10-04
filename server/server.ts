@@ -367,6 +367,16 @@ async function startServer() {
         return res.status(400).json({ error: 'no valid moderation frames' });
       }
 
+      const apiKey = process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        console.error('Travel Bar moderation cannot run: GEMINI_API_KEY is missing.');
+        return res.status(503).json({
+          error: 'media moderation unavailable',
+          code: 'GEMINI_API_KEY_MISSING',
+          retryable: false
+        });
+      }
+
       const ai = getAIClient();
       const parts: any[] = [
         {
@@ -391,10 +401,8 @@ async function startServer() {
             model,
             contents: [{ role: 'user', parts }],
             config: {
-              temperature: 0,
-              topP: 0.1,
               responseMimeType: 'application/json',
-              responseSchema: MEDIA_MODERATION_SCHEMA,
+              responseJsonSchema: MEDIA_MODERATION_SCHEMA,
               // The classifier itself must be able to inspect borderline inputs.
               // Core protections (for example child safety) still cannot be disabled by the API.
               safetySettings: [
@@ -447,7 +455,12 @@ async function startServer() {
         console.error('All media moderation models failed:', lastServiceError);
         return res.status(503).json({
           error: 'media moderation unavailable',
-          retryable: true
+          code: 'GEMINI_REQUEST_FAILED',
+          retryable: true,
+          details:
+            process.env.NODE_ENV === 'production'
+              ? undefined
+              : String((lastServiceError as any)?.message || lastServiceError || '')
         });
       }
 
@@ -493,7 +506,15 @@ async function startServer() {
       });
     } catch (error: any) {
       console.error('Error in /api/moderate/media:', error);
-      return res.status(500).json({ error: 'media moderation failed' });
+      return res.status(500).json({
+        error: 'media moderation failed',
+        code: 'MEDIA_MODERATION_INTERNAL_ERROR',
+        retryable: true,
+        details:
+          process.env.NODE_ENV === 'production'
+            ? undefined
+            : String(error?.message || error || '')
+      });
     }
   });
 
