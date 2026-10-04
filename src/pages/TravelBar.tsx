@@ -996,8 +996,8 @@ export const TravelBarView: React.FC<{
               </div>
             )}
 
-            {/* Mention & Quick Tag Pills */}
-            <div className="py-2.5 border-t border-apple-gray-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 mb-[max(env(safe-area-inset-bottom,0px)+1rem,1.5rem)]">
+            {/* Composer tools — compact icon dock + scrollable quick tags */}
+            <div className="shrink-0 border-t border-apple-gray-100 pt-2.5 pb-[max(env(safe-area-inset-bottom,0px)+1rem,1.5rem)]">
               <input
                 ref={mediaInputRef}
                 type="file"
@@ -1007,67 +1007,90 @@ export const TravelBarView: React.FC<{
                 onChange={handleMediaSelection}
               />
 
-              <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={0}>
-                <WarmTooltip
-                  content="新增照片或影片"
-                  shortcut="最多 10 個"
-                  side="top"
-                  surfaceColor="#B6cada"
-                  inkColor="#045096"
-                  size="md"
-                  radius={8}
-                  gap={8}
-                  arrow
-                  popDuration={180}
-                  popScale={0.94}
-                  popBlur={4}
-                  showFuse={false}
-                >
-                  <button
-                    type="button"
-                    onClick={() => mediaInputRef.current?.click()}
-                    disabled={draftMedia.length >= MAX_POST_MEDIA}
-                    className="shrink-0 px-3 py-1.5 rounded-full bg-[#E6F5FF] text-[#035096] hover:bg-[#035096] hover:text-white text-xs font-bold border border-[#035096]/25 transition-all active:scale-95 flex items-center gap-1.5 shadow-2xs disabled:opacity-40 disabled:active:scale-100"
-                  >
-                    <ImagePlus size={14} strokeWidth={2.4} />
-                    <span>照片 / 影片</span>
-                  </button>
-                </WarmTooltip>
-              </WarmTooltipGroup>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="shrink-0 rounded-[14px] bg-[#20262D] p-1.5 shadow-apple-sm">
+                  <div className="flex items-center gap-0.5">
+                    <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={0}>
+                      <WarmTooltip
+                        content="照片 / 影片"
+                        shortcut={`${draftMedia.length}/10`}
+                        side="top"
+                        surfaceColor="#B6cada"
+                        inkColor="#045096"
+                        size="md"
+                        radius={8}
+                        gap={8}
+                        arrow
+                        popDuration={180}
+                        popScale={0.94}
+                        popBlur={4}
+                        showFuse={false}
+                      >
+                        <button
+                          type="button"
+                          aria-label="新增照片或影片"
+                          onClick={() => mediaInputRef.current?.click()}
+                          disabled={draftMedia.length >= MAX_POST_MEDIA}
+                          className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-35 disabled:active:scale-100"
+                        >
+                          <ImagePlus size={18} strokeWidth={2.15} />
+                        </button>
+                      </WarmTooltip>
 
-              <div className="h-4 w-px bg-apple-gray-200 shrink-0 mx-1" />
+                      <WarmTooltip
+                        content="標註朋友"
+                        shortcut="@"
+                        side="top"
+                        surfaceColor="#B6cada"
+                        inkColor="#045096"
+                        size="md"
+                        radius={8}
+                        gap={8}
+                        arrow
+                        popDuration={180}
+                        popScale={0.94}
+                        popBlur={4}
+                        showFuse={false}
+                      >
+                        <button
+                          type="button"
+                          aria-label="標註朋友"
+                          onClick={() => setShowMentionPicker(true)}
+                          className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                        >
+                          <AtSign size={18} strokeWidth={2.2} />
+                        </button>
+                      </WarmTooltip>
+                    </WarmTooltipGroup>
+                  </div>
+                </div>
 
-              {/* @ 標註朋友 Button (Instagram Style) */}
-              <button
-                type="button"
-                onClick={() => setShowMentionPicker(true)}
-                className="shrink-0 px-3 py-1.5 rounded-full bg-[#E6F5FF] text-[#035096] hover:bg-[#035096] hover:text-white text-xs font-bold border border-[#035096]/25 transition-all active:scale-95 flex items-center gap-1.5 shadow-2xs"
-              >
-                <AtSign size={13} strokeWidth={2.5} />
-                <span>@ 標註朋友</span>
-              </button>
+                <div className="h-7 w-px bg-apple-gray-200 shrink-0" />
 
-              <div className="h-4 w-px bg-apple-gray-200 shrink-0 mx-1" />
-
-              <span className="text-[11px] font-bold text-apple-gray-400 shrink-0 flex items-center gap-1">
-                <Tag size={12} />
-                快捷標籤：
-              </span>
-              {['美食探店', '避雷提醒', '自駕公路', '住宿推薦', '景點秘境', '交通心得', '溫泉放鬆', '滑雪', '海島水上', '獨旅小資'].map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    const tagStr = `#${t} `;
-                    if (!newPostContent.includes(tagStr)) {
-                      setNewPostContent(prev => prev ? `${prev} ${tagStr}` : tagStr);
-                    }
-                  }}
-                  className="shrink-0 px-2.5 py-1 rounded-full bg-apple-gray-100/90 hover:bg-[#E6F5FF] text-apple-gray-600 hover:text-[#035096] text-xs font-semibold transition-all active:scale-95"
-                >
-                  #{t}
-                </button>
-              ))}
+                <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-2 w-max pr-3">
+                    <span className="text-[11px] font-bold text-apple-gray-400 shrink-0 flex items-center gap-1">
+                      <Tag size={12} />
+                      快捷標籤：
+                    </span>
+                    {['美食探店', '避雷提醒', '自駕公路', '住宿推薦', '景點秘境', '交通心得', '溫泉放鬆', '滑雪', '海島水上', '獨旅小資'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          const tagStr = `#${t} `;
+                          if (!newPostContent.includes(tagStr)) {
+                            setNewPostContent(prev => prev ? `${prev} ${tagStr}` : tagStr);
+                          }
+                        }}
+                        className="shrink-0 px-3 py-1.5 rounded-full bg-apple-gray-100/90 hover:bg-[#E6F5FF] text-apple-gray-600 hover:text-[#035096] text-xs font-semibold transition-all active:scale-95"
+                      >
+                        #{t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Instagram Style Mention Picker Modal */}
