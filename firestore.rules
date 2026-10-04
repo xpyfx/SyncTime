@@ -336,16 +336,15 @@ service cloud.firestore {
       function isValidBarPost(data) {
         return data.authorId is string
           && data.content is string
+          && data.get('media', []) is list
+          && data.get('media', []).size() <= 10
           && (
             data.content.size() > 0 ||
-            (
-              data.get('media', []) is list
-              && data.get('media', []).size() > 0
-            )
+            data.get('media', []).size() > 0
           )
           && (
-            !(data.get('media', []) is list) ||
-            data.get('media', []).size() <= 10
+            data.get('media', []).size() == 0 ||
+            data.get('moderationStatus', '') == 'approved'
           );
       }
     }
