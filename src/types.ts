@@ -211,12 +211,20 @@ export interface BarComment {
   repliesCount?: number;
 }
 
+export interface BarPostMedia {
+  type: 'image' | 'video';
+  url: string;
+  duration?: number;
+}
+
 export interface BarPost {
   id: string;
   authorId: string;
   content: string;
   imageUrl?: string;
   images?: string[];
+  media?: BarPostMedia[];
+  moderationStatus?: 'approved' | 'blocked' | 'pending';
   likesCount?: number;
   commentsCount?: number;
   favoritesCount?: number;
@@ -389,6 +397,7 @@ export interface SharedBarPostCardData {
   content: string;
   imageUrl?: string;
   images?: string[];
+  media?: BarPostMedia[];
   likesCount?: number;
   commentsCount?: number;
   createdAt?: string;
