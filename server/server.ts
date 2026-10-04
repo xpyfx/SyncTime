@@ -80,6 +80,44 @@ function getAIClient(): GoogleGenAI {
   return aiClient;
 }
 
+const MEDIA_SAFETY_PROMPT = `
+You are a strict visual safety classifier for a travel social app.
+Review every supplied image frame. Return ONLY one compact JSON object with this shape:
+{"unsafe":boolean,"categories":string[],"reason":"short Traditional Chinese explanation"}
+
+Mark unsafe=true when the media clearly contains or meaningfully depicts any of the following:
+- explicit sexual content, nudity intended for sexual display, pornography
+- sexualized or sexually suggestive content
+- graphic violence, severe injury, gore, visible blood presented graphically
+- cruelty, torture, or abuse of animals
+- illegal drug use, preparation, sale, or prominent drug paraphernalia
+- self-harm, suicide attempts, or instructions/promotional depictions of self-harm
+- sexualization or exploitation of minors
+- extremist or hate imagery that promotes violence or dehumanization
+- dangerous acts that encourage serious physical harm
+
+Do not flag ordinary travel scenes, food, landscapes, consensual non-sexual affection,
+ordinary swimwear, tattoos, medical settings without graphic injury, or alcohol by themselves.
+When uncertain and there is no clear policy issue, use unsafe=false.
+For video, the images are sampled frames from the same clip, so evaluate them together.
+`;
+
+const parseModerationJson = (raw: string) => {
+  const cleaned = raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('INVALID_MODERATION_RESPONSE');
+  }
+
+  return JSON.parse(cleaned.slice(start, end + 1));
+};
+
 function getSyncTimeKnowledgeResponse(query: string): string {
   const q = query.toLowerCase().trim();
 
@@ -244,14 +282,107 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '12mb' }));
 
   // 1. Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // 2. Gemini Multi-Turn AI Assistant Endpoint for SyncTime
+  // 2. Visual safety moderation for Travel Bar photos/videos.
+  // The client sends compressed image frames only; unsafe media is rejected before upload.
+  app.post('/api/moderate/media', async (req, res) => {
+    try {
+      const { frames, mediaType } = req.body || {};
+
+      if (
+        !Array.isArray(frames) ||
+        frames.length === 0 ||
+        frames.length > 12 ||
+        !['image', 'video'].includes(mediaType)
+      ) {
+        return res.status(400).json({ error: 'invalid media moderation payload' });
+      }
+
+      const normalizedFrames = frames
+        .filter((frame: unknown) => typeof frame === 'string' && frame.length > 0)
+        .slice(0, 12);
+
+      if (normalizedFrames.length === 0) {
+        return res.status(400).json({ error: 'no valid moderation frames' });
+      }
+
+      const ai = getAIClient();
+      const parts: any[] = [
+        {
+          text:
+            MEDIA_SAFETY_PROMPT +
+            `\nMedia type: ${mediaType}. Review all ${normalizedFrames.length} frame(s).`
+        },
+        ...normalizedFrames.map((data: string) => ({
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data
+          }
+        }))
+      ];
+
+      let responseText = '';
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: [{ role: 'user', parts }],
+          config: {
+            temperature: 0,
+            topP: 0.1
+          }
+        });
+        responseText = response.text || '';
+      } catch (error: any) {
+        const message = String(error?.message || error || '');
+        const safetyBlocked =
+          /safety|blocked|prohibited|policy/i.test(message);
+
+        if (safetyBlocked) {
+          return res.json({
+            allowed: false,
+            categories: ['safety_filter'],
+            reason: '內容被安全系統攔截'
+          });
+        }
+
+        console.error('Media moderation service failed:', error);
+        return res.status(503).json({ error: 'media moderation unavailable' });
+      }
+
+      let parsed: any;
+      try {
+        parsed = parseModerationJson(responseText);
+      } catch (error) {
+        console.warn('Could not parse media moderation response:', responseText);
+        return res.status(503).json({ error: 'invalid moderation response' });
+      }
+
+      const unsafe = parsed?.unsafe === true;
+      const categories = Array.isArray(parsed?.categories)
+        ? parsed.categories.map((value: unknown) => String(value)).slice(0, 12)
+        : [];
+
+      return res.json({
+        allowed: !unsafe,
+        categories,
+        reason:
+          typeof parsed?.reason === 'string'
+            ? parsed.reason.slice(0, 240)
+            : ''
+      });
+    } catch (error: any) {
+      console.error('Error in /api/moderate/media:', error);
+      return res.status(500).json({ error: 'media moderation failed' });
+    }
+  });
+
+  // 3. Gemini Multi-Turn AI Assistant Endpoint for SyncTime
   app.post('/api/chat/assistant', async (req, res) => {
     try {
       const { messages } = req.body;
@@ -317,7 +448,7 @@ async function startServer() {
     }
   });
 
-  // 3. Vite middleware for development vs static serve for production
+  // 4. Vite middleware for development vs static serve for production
   if (process.env.NODE_ENV !== 'production') {
   const vite = await createViteServer({
     server: {
