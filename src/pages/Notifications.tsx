@@ -45,7 +45,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   onChatClick,
   onPostClick
 }) => {
-  const { user } = useAuth();
+  const { user, profile, blockedByUsers } = useAuth();
   const [notifications, setNotifications] = useState<(Notification & { fromProfile?: UserProfile, trip?: Trip })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessingAction, setIsProcessingAction] = useState<string | null>(null);
@@ -87,7 +87,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     const unsubNotif = onSnapshot(qNotif, async (s) => {
       try {
         // Strictly filter out chat_message notifications (handled in Chat rooms)
-        const nonChatDocs = s.docs.filter(d => d.data().type !== 'chat_message');
+        // and every notification originating from a mutually blocked account.
+        const blockedIds = new Set([
+          ...(profile?.blockedUsers || []),
+          ...(blockedByUsers || [])
+        ]);
+        const nonChatDocs = s.docs.filter(d => {
+          const data = d.data();
+          return data.type !== 'chat_message' && (!data.fromId || !blockedIds.has(data.fromId));
+        });
 
         const resolvedNotifs = await Promise.all(nonChatDocs.map(async (d) => {
           const data = d.data();
@@ -158,7 +166,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     });
 
     return () => unsubNotif();
-  }, [user]);
+  }, [user?.uid, profile?.blockedUsers, blockedByUsers]);
 
   // Instagram-Style Friend Request Approval
   const handleActionFriendRequest = async (notif: any, approved: boolean) => {
