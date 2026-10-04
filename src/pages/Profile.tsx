@@ -255,6 +255,20 @@ export const ProfilePage: React.FC<{
   );
   const isBlockedRelationship = isBlockedByMe || isBlockedByThem;
 
+  // If a block happens while a sensitive profile sub-view is already open,
+  // close it immediately so cached UI cannot keep showing the other account.
+  useEffect(() => {
+    if (!isBlockedRelationship) return;
+    setShowProfileMenu(false);
+    setIsPassportExpanded(false);
+    setShowTravelTrajectory(false);
+    setShowFriends(false);
+    setShowSaved(false);
+    setShowMyTrips(false);
+    setShowFootprintDetail(false);
+    setShowFootprintInfo(false);
+  }, [isBlockedRelationship]);
+
   // Profile Action Menu & Modals
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showBlockConfirmModal, setShowBlockConfirmModal] = useState(false);
