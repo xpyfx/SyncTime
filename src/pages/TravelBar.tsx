@@ -397,43 +397,6 @@ export const TravelBarView: React.FC<{
     const uploadedRefs: ReturnType<typeof storageRef>[] = [];
 
     try {
-      if (MEDIA_UPLOAD_DIAGNOSTIC_MODE) {
-        const testId = `upload-test-${Date.now()}`;
-
-        await Promise.all(
-          draftMedia.map(async (item, index) => {
-            const sanitizedName = item.file.name
-              .replace(/[^a-zA-Z0-9._-]+/g, '-')
-              .slice(-80);
-
-            const mediaRef = storageRef(
-              storage,
-              `bar-posts/${user.uid}/${testId}/${String(index + 1).padStart(2, '0')}-${sanitizedName}`
-            );
-
-            uploadedRefs.push(mediaRef);
-
-            await uploadBytes(mediaRef, item.file, {
-              contentType: item.file.type,
-              customMetadata: {
-                ownerId: user.uid,
-                uploadPurpose: 'media-upload-diagnostic'
-              }
-            });
-
-            await getDownloadURL(mediaRef);
-          })
-        );
-
-        window.alert(
-          `圖片／影片上傳測試成功，共上傳 ${draftMedia.length} 個媒體。這次不會建立公開旅吧貼文。`
-        );
-
-        clearDraftMedia();
-        setNewPostContent('');
-        setIsPosting(false);
-        return;
-      }
       const content = newPostContent.trim();
       const originalLanguage = content
         ? await detectTextLanguage(content)
@@ -510,7 +473,7 @@ export const TravelBarView: React.FC<{
         media: uploadedMedia,
         images: imageUrls,
         imageUrl: imageUrls[0] || '',
-        moderationStatus: 'approved',
+        moderationStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved',
         likesCount: 0,
         commentsCount: 0,
         favoritesCount: 0,
@@ -539,14 +502,27 @@ export const TravelBarView: React.FC<{
       clearDraftMedia();
       setNewPostContent('');
       setIsPosting(false);
-    } catch (error) {
+    } catch (error: any) {
       await Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
-      try {
-        handleFirestoreError(error, OperationType.CREATE, path);
-      } catch {
-        // handleFirestoreError already logs the detailed error.
+
+      console.error('Travel Bar media publish failed:', error);
+
+      const code = String(error?.code || '');
+      let message = '貼文發佈失敗，請稍後再試。';
+
+      if (code === 'storage/unauthorized') {
+        message = '照片／影片上傳權限尚未開啟，請確認 Firebase Storage Rules 已發布。';
+      } else if (code === 'storage/bucket-not-found') {
+        message = '找不到 Firebase Storage 儲存空間，請確認 Storage 已在 Firebase 專案中啟用。';
+      } else if (code === 'storage/quota-exceeded') {
+        message = 'Firebase Storage 儲存額度已達上限。';
+      } else if (code === 'storage/retry-limit-exceeded') {
+        message = '照片／影片上傳逾時，請確認網路後再試一次。';
+      } else if (code.startsWith('storage/')) {
+        message = `照片／影片上傳失敗（${code}）。`;
       }
-      window.alert('貼文發佈失敗，請稍後再試。');
+
+      window.alert(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -995,7 +971,7 @@ export const TravelBarView: React.FC<{
                     媒體 {draftMedia.length}/{MAX_POST_MEDIA}
                   </span>
                   <span className="text-[10px] text-apple-gray-400">
-                    上傳測試模式・影片最長 60 秒・最多 10 個媒體
+                    影片最長 60 秒・最多 10 個媒體
                   </span>
                 </div>
 
