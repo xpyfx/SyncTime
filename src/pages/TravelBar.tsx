@@ -445,7 +445,7 @@ export const TravelBarView: React.FC<{
             customMetadata: {
               ownerId: user.uid,
               postId: postRef.id,
-              safetyStatus: 'approved'
+              safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
             }
           });
 
