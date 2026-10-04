@@ -108,11 +108,13 @@ export const TravelBarView: React.FC<{
   const { user, profile, isUserBlocked } = useAuth();
 
   const hasPendingMedia = draftMedia.some(item => item.status === 'pending');
+  const hasMediaError = draftMedia.some(item => item.status === 'error');
   const safeDraftMedia = draftMedia.filter(item => item.status === 'safe');
   const canPublish =
     Boolean(user) &&
     !isSubmitting &&
     !hasPendingMedia &&
+    !hasMediaError &&
     (newPostContent.trim().length > 0 || safeDraftMedia.length > 0);
 
   const clearDraftMedia = () => {
@@ -140,6 +142,7 @@ export const TravelBarView: React.FC<{
   const moderateDraftItem = async (item: DraftPostMedia) => {
     try {
       const result = await moderatePostMedia(item.file, item.type);
+
       setDraftMedia(previous =>
         previous.map(current =>
           current.id === item.id
@@ -152,11 +155,15 @@ export const TravelBarView: React.FC<{
         )
       );
 
+      // This warning is ONLY shown for an actual policy block.
       if (!result.allowed) {
         window.alert('您上傳的照片可能違反使用者安全政策！');
       }
     } catch (error) {
       console.error('Media safety moderation failed:', error);
+
+      // A service/network/model error is not a policy violation.
+      // Keep the user's media visible and offer a retry instead of hiding it.
       setDraftMedia(previous =>
         previous.map(current =>
           current.id === item.id
@@ -168,8 +175,26 @@ export const TravelBarView: React.FC<{
             : current
         )
       );
-      window.alert('安全檢測暫時無法完成，這個媒體不會被上傳。請稍後再試。');
+
+      window.alert('安全檢測暫時無法完成，照片不會被判定為違規。請稍後重新檢測。');
     }
+  };
+
+  const retryDraftMediaModeration = (id: string) => {
+    const item = draftMedia.find(current => current.id === id);
+    if (!item) return;
+
+    const pendingItem: DraftPostMedia = {
+      ...item,
+      status: 'pending',
+      reason: undefined
+    };
+
+    setDraftMedia(previous =>
+      previous.map(current => current.id === id ? pendingItem : current)
+    );
+
+    void moderateDraftItem(pendingItem);
   };
 
   const handleMediaSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -891,7 +916,7 @@ export const TravelBarView: React.FC<{
                 disabled={!canPublish}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${canPublish ? 'bg-[#035096] text-white active:scale-95' : 'bg-apple-gray-100 text-apple-gray-300'}`}
               >
-                {isSubmitting ? '發佈中...' : hasPendingMedia ? '檢測中...' : '發佈'}
+                {isSubmitting ? '發佈中...' : hasPendingMedia ? '檢測中...' : hasMediaError ? '請重新檢測' : '發佈'}
               </button>
             </div>
             <textarea
@@ -919,11 +944,11 @@ export const TravelBarView: React.FC<{
                       key={item.id}
                       className="relative aspect-square rounded-2xl overflow-hidden bg-apple-gray-100 border border-apple-gray-100"
                     >
-                      {item.status === 'blocked' || item.status === 'error' ? (
+                      {item.status === 'blocked' ? (
                         <div className="absolute inset-0 bg-apple-gray-100 flex flex-col items-center justify-center text-center px-2">
-                          <ShieldAlert size={22} className={item.status === 'blocked' ? 'text-red-500' : 'text-amber-500'} />
+                          <ShieldAlert size={22} className="text-red-500" />
                           <span className="text-[10px] font-bold text-apple-gray-600 mt-1">
-                            {item.status === 'blocked' ? '已依安全政策隱藏' : '安全檢測失敗'}
+                            已依安全政策隱藏
                           </span>
                         </div>
                       ) : item.type === 'image' ? (
@@ -955,6 +980,26 @@ export const TravelBarView: React.FC<{
                         <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex flex-col items-center justify-center">
                           <LoaderCircle size={20} className="animate-spin text-[#035096]" />
                           <span className="mt-1 text-[9px] font-bold text-[#035096]">安全檢測中</span>
+                        </div>
+                      )}
+
+                      {item.status === 'error' && (
+                        <div className="absolute inset-x-1.5 bottom-1.5 rounded-xl bg-amber-50/95 border border-amber-200 shadow-sm px-2 py-1.5 backdrop-blur-sm">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-[9px] font-bold text-amber-700 leading-tight">
+                              檢測暫時失敗，未判定違規
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                retryDraftMediaModeration(item.id);
+                              }}
+                              className="shrink-0 px-2 py-1 rounded-lg bg-amber-500 text-white text-[9px] font-black active:scale-95 transition-transform"
+                            >
+                              重試
+                            </button>
+                          </div>
                         </div>
                       )}
 
