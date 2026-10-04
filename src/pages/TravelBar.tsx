@@ -22,6 +22,7 @@ import {
 } from '../lib/postMedia';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { detectTextLanguage } from '../lib/translation';
+import { uploadMediaToPostgres } from '../lib/mediaUploader';
 
 const MEDIA_UPLOAD_DIAGNOSTIC_MODE = true;
 
@@ -430,26 +431,9 @@ export const TravelBarView: React.FC<{
       const postRef = doc(collection(db, path));
 
       const uploadedMedia = await Promise.all(
-        safeDraftMedia.map(async (item, index) => {
-          const sanitizedName = item.file.name
-            .replace(/[^a-zA-Z0-9._-]+/g, '-')
-            .slice(-80);
-          const mediaRef = storageRef(
-            storage,
-            `bar-posts/${user.uid}/${postRef.id}/${String(index + 1).padStart(2, '0')}-${Date.now()}-${sanitizedName}`
-          );
-
-          uploadedRefs.push(mediaRef);
-          await uploadBytes(mediaRef, item.file, {
-            contentType: item.file.type,
-            customMetadata: {
-              ownerId: user.uid,
-              postId: postRef.id,
-              safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
-            }
-          });
-
-          const url = await getDownloadURL(mediaRef);
+        safeDraftMedia.map(async (item) => {
+          // ✨ 直接傳到你的 Windows 筆電 PostgreSQL / 影片串流伺服器！
+          const url = await uploadMediaToPostgres(item.file);
           return {
             type: item.type,
             url,
