@@ -22,6 +22,8 @@ import {
 } from '../lib/postMedia';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 
+const MEDIA_UPLOAD_DIAGNOSTIC_MODE = true;
+
 type DraftPostMedia = {
   id: string;
   file: File;
@@ -107,9 +109,11 @@ export const TravelBarView: React.FC<{
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, isUserBlocked } = useAuth();
 
-  const hasPendingMedia = draftMedia.some(item => item.status === 'pending');
-  const hasMediaError = draftMedia.some(item => item.status === 'error');
-  const safeDraftMedia = draftMedia.filter(item => item.status === 'safe');
+  const hasPendingMedia = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'pending');
+  const hasMediaError = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'error');
+  const safeDraftMedia = MEDIA_UPLOAD_DIAGNOSTIC_MODE
+    ? draftMedia
+    : draftMedia.filter(item => item.status === 'safe');
   const canPublish =
     Boolean(user) &&
     !isSubmitting &&
@@ -257,11 +261,14 @@ export const TravelBarView: React.FC<{
         type,
         previewUrl: URL.createObjectURL(file),
         duration,
-        status: 'pending'
+        status: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'safe' : 'pending'
       };
 
       setDraftMedia(previous => [...previous, item]);
-      void moderateDraftItem(item);
+
+      if (!MEDIA_UPLOAD_DIAGNOSTIC_MODE) {
+        void moderateDraftItem(item);
+      }
     }
   };
 
@@ -389,6 +396,43 @@ export const TravelBarView: React.FC<{
     const uploadedRefs: ReturnType<typeof storageRef>[] = [];
 
     try {
+      if (MEDIA_UPLOAD_DIAGNOSTIC_MODE) {
+        const testId = `upload-test-${Date.now()}`;
+
+        await Promise.all(
+          draftMedia.map(async (item, index) => {
+            const sanitizedName = item.file.name
+              .replace(/[^a-zA-Z0-9._-]+/g, '-')
+              .slice(-80);
+
+            const mediaRef = storageRef(
+              storage,
+              `bar-posts/${user.uid}/${testId}/${String(index + 1).padStart(2, '0')}-${sanitizedName}`
+            );
+
+            uploadedRefs.push(mediaRef);
+
+            await uploadBytes(mediaRef, item.file, {
+              contentType: item.file.type,
+              customMetadata: {
+                ownerId: user.uid,
+                uploadPurpose: 'media-upload-diagnostic'
+              }
+            });
+
+            await getDownloadURL(mediaRef);
+          })
+        );
+
+        window.alert(
+          `圖片／影片上傳測試成功，共上傳 ${draftMedia.length} 個媒體。這次不會建立公開旅吧貼文。`
+        );
+
+        clearDraftMedia();
+        setNewPostContent('');
+        setIsPosting(false);
+        return;
+      }
       const content = newPostContent.trim();
       const tags = extractHashtags(content);
 
@@ -946,7 +990,7 @@ export const TravelBarView: React.FC<{
                     媒體 {draftMedia.length}/{MAX_POST_MEDIA}
                   </span>
                   <span className="text-[10px] text-apple-gray-400">
-                    影片最長 60 秒・上傳前自動安全檢測
+                    上傳測試模式・影片最長 60 秒・最多 10 個媒體
                   </span>
                 </div>
 
@@ -956,7 +1000,7 @@ export const TravelBarView: React.FC<{
                       key={item.id}
                       className="relative aspect-square rounded-2xl overflow-hidden bg-apple-gray-100 border border-apple-gray-100"
                     >
-                      {item.status === 'blocked' ? (
+                      {!MEDIA_UPLOAD_DIAGNOSTIC_MODE && item.status === 'blocked' ? (
                         <div className="absolute inset-0 bg-apple-gray-100 flex flex-col items-center justify-center text-center px-2">
                           <ShieldAlert size={22} className="text-red-500" />
                           <span className="text-[10px] font-bold text-apple-gray-600 mt-1">
@@ -988,14 +1032,14 @@ export const TravelBarView: React.FC<{
                         </>
                       )}
 
-                      {item.status === 'pending' && (
+                      {!MEDIA_UPLOAD_DIAGNOSTIC_MODE && item.status === 'pending' && (
                         <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex flex-col items-center justify-center">
                           <LoaderCircle size={20} className="animate-spin text-[#035096]" />
                           <span className="mt-1 text-[9px] font-bold text-[#035096]">安全檢測中</span>
                         </div>
                       )}
 
-                      {item.status === 'error' && (
+                      {!MEDIA_UPLOAD_DIAGNOSTIC_MODE && item.status === 'error' && (
                         <div className="absolute inset-x-1.5 bottom-1.5 rounded-xl bg-amber-50/95 border border-amber-200 shadow-sm px-2 py-1.5 backdrop-blur-sm">
                           <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[9px] font-bold text-amber-700 leading-tight">
@@ -1015,7 +1059,7 @@ export const TravelBarView: React.FC<{
                         </div>
                       )}
 
-                      {item.status === 'safe' && (
+                      {!MEDIA_UPLOAD_DIAGNOSTIC_MODE && item.status === 'safe' && (
                         <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
                           <Check size={12} strokeWidth={3} />
                         </div>
