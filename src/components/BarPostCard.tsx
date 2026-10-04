@@ -79,7 +79,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
   onMentionClick,
   mentionUsers
 }) => {
-  const { user } = useAuth();
+  const { user, isUserBlocked } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
   const [showReplyInput, setShowReplyInput] = useState(false);
@@ -342,6 +342,8 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
     }
   };
 
+  const visibleReplies = replies.filter(reply => !isUserBlocked(reply.authorId));
+
   return (
     <div className="space-y-2">
       {/* Top Comment Body */}
@@ -426,9 +428,9 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
       </div>
 
       {/* Nested Replies List */}
-      {replies.length > 0 && (
+      {visibleReplies.length > 0 && (
         <div className="ml-9 space-y-2.5 pt-1 pl-3 border-l-2 border-apple-gray-100">
-          {replies.map(r => {
+          {visibleReplies.map(r => {
             const replyAuthor = replyAuthors[r.authorId];
             const isReplyLiked = likedReplyIds.has(r.id);
             const rLikesCount = (r.likesCount || 0) + (isReplyLiked ? 1 : 0);
@@ -599,7 +601,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   recommendationReason,
   matchedTags
 }) => {
-  const { user } = useAuth();
+  const { user, isUserBlocked } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
@@ -692,7 +694,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       .then(snapshot => {
         const list = snapshot.docs
           .map(d => ({ uid: d.id, ...d.data() } as UserProfile))
-          .filter(profile => !profile.isDeleted && profile.uid !== user?.uid);
+          .filter(profile => !profile.isDeleted && profile.uid !== user?.uid && !isUserBlocked(profile.uid));
         setMentionUsers(list);
       })
       .catch(error => {
@@ -934,6 +936,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
   const isDeletedAuthor = !author || author.isDeleted;
   const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
+  const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
 
   return (
     <div className="border-b border-apple-gray-100/50 py-5 px-5 bg-white transition-colors">
@@ -1225,8 +1228,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
                 {/* Comment List with Comment Likes & Nested Replies */}
                 <div className="space-y-4 max-h-96 overflow-y-auto no-scrollbar pb-2">
-                  {comments.length > 0 ? (
-                    comments.map(c => (
+                  {visibleComments.length > 0 ? (
+                    visibleComments.map(c => (
                       <BarCommentItem
                         key={c.id}
                         postId={post.id}
