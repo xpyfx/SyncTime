@@ -2063,7 +2063,7 @@ const ChatView: React.FC<{
   onAvatarClick?: (userId: string) => void,
   onNavigateToPost?: (postId: string) => void 
 }> = ({ roomId, onBack, onBackToTrip, onAvatarClick, onNavigateToPost }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, isUserBlocked } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [room, setRoom] = useState<ChatRoom | null>(null);
@@ -3437,7 +3437,14 @@ React.useLayoutEffect(() => {
 
     const q = query(collection(db, 'chatRooms', roomId, 'messages'), orderBy('createdAt', 'asc'));
     const unsubMsgs = onSnapshot(q, (s) => {
-      const mapped = s.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      const mapped = s.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Message))
+        .filter(message => {
+          if (isUserBlocked(message.senderId)) return false;
+          if (message.sharedPost?.authorId && isUserBlocked(message.sharedPost.authorId)) return false;
+          if (message.sharedTrip?.authorId && isUserBlocked(message.sharedTrip.authorId)) return false;
+          return true;
+        });
       // Normalize timestamp sorting across mixed createdAt types (ISO string, Timestamp, etc.)
       mapped.sort((a, b) => {
         const getMs = (val: any) => {
@@ -3466,7 +3473,7 @@ React.useLayoutEffect(() => {
       unsubRoom();
       unsubMsgs();
     };
-  }, [roomId]);
+  }, [roomId, isUserBlocked]);
 
   useEffect(() => {
     if (!roomId || !user?.uid) return;
@@ -6228,6 +6235,17 @@ export const ChatPage: React.FC<{
       (r.lastMessage && r.lastMessage.toLowerCase().includes(q))
     );
   }, [rooms, searchQuery, user?.uid, isUserBlocked]);
+
+  useEffect(() => {
+    if (!selectedRoomId) return;
+    const selectedRoom = rooms.find(room => room.id === selectedRoomId);
+    if (!selectedRoom || selectedRoom.type === 'group') return;
+
+    const otherParticipant = selectedRoom.participants?.find(id => id !== user?.uid);
+    if (otherParticipant && isUserBlocked(otherParticipant)) {
+      setSelectedRoomId(null);
+    }
+  }, [selectedRoomId, rooms, user?.uid, isUserBlocked]);
 
   // Derived Group Chat Rooms
   const groupRooms = React.useMemo(() => {
