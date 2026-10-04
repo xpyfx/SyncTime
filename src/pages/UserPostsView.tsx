@@ -15,7 +15,7 @@ interface UserPostsViewProps {
 }
 
 export const UserPostsView: React.FC<UserPostsViewProps> = ({ userId, onBack, onTripClick }) => {
-  const { user } = useAuth();
+  const { user, isUserBlocked } = useAuth();
   const [activeTab, setActiveTab] = useState<'trips' | 'bar'>('trips');
   const [trips, setTrips] = useState<Trip[]>([]);
   const [barPosts, setBarPosts] = useState<BarPost[]>([]);
@@ -51,6 +51,7 @@ export const UserPostsView: React.FC<UserPostsViewProps> = ({ userId, onBack, on
   };
 
   const isOwner = user?.uid === userId;
+  const isBlockedProfile = !isOwner && isUserBlocked(userId);
 
   const filteredTrips = trips.filter(trip => {
     const isPublic = !trip.isFriendsOnly;
@@ -59,6 +60,28 @@ export const UserPostsView: React.FC<UserPostsViewProps> = ({ userId, onBack, on
 
     return isOwner || isPublic || isMember || isFriend;
   });
+
+  if (isBlockedProfile) {
+    return (
+      <div className="bg-white fixed inset-0 z-50 overflow-y-auto">
+        <div className="sticky top-0 bg-white/90 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center border-b border-apple-gray-100/50">
+          <button
+            onClick={onBack}
+            className="w-10 h-10 -ml-1 flex items-center justify-center rounded-full text-apple-gray-600 active:scale-90 transition-transform"
+            aria-label="返回"
+          >
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-lg font-bold tracking-tight text-apple-gray-900 ml-2">發佈記錄</h1>
+        </div>
+        <div className="min-h-[65vh] flex items-center justify-center px-8 text-center">
+          <p className="text-sm font-semibold text-apple-gray-400 leading-relaxed">
+            你或此旅客已將彼此列入封鎖名單，因此無法查看發布內容。
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white fixed inset-0 z-50 overflow-y-auto pb-40">
