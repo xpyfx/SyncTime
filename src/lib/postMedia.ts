@@ -159,10 +159,14 @@ export const moderatePostMedia = async (
     }
 
     const error = new Error(
-      payload?.code || payload?.error || 'MEDIA_MODERATION_UNAVAILABLE'
+      payload?.userMessage ||
+      payload?.code ||
+      payload?.error ||
+      'MEDIA_MODERATION_UNAVAILABLE'
     );
     (error as any).code = payload?.code;
     (error as any).details = payload?.details;
+    (error as any).userMessage = payload?.userMessage;
     throw error;
   }
 
