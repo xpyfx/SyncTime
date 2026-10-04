@@ -78,6 +78,8 @@ import { COUNTRY_STAMPS, CountryStamp } from '../lib/countryStampData';
 import { CountryStampBadge } from '../components/CountryStampBadge';
 import { PassportSecurityWatermark, requestPassportMotionPermission } from '../components/PassportSecurityWatermark';
 import { OfficialBadge } from '../components/OfficialBadge';
+import { LanguageSettingsModal } from '../components/LanguageSettingsModal';
+import { useLanguage } from '../context/LanguageContext';
 
 const getZodiacSign = (dateVal: any) => {
   if (!dateVal) return 'Unknown';
@@ -215,6 +217,7 @@ export const ProfilePage: React.FC<{
   onUserClick?: (uid: string) => void
 }> = ({ targetUserId, onBack, onMyPostsClick, onTripClick, onChatClick, onUserClick }) => {
   const { user, profile: myProfile, logout, deleteAccount, blockUser, unblockUser, isUserBlocked, blockedByUsers } = useAuth();
+  const { languageLabel, t } = useLanguage();
   const effectiveUserId = targetUserId || user?.uid;
   const isOwnProfile = !targetUserId || targetUserId === user?.uid;
 
@@ -295,6 +298,7 @@ export const ProfilePage: React.FC<{
   const [firendsList, setFriendsList] = useState<UserProfile[]>([]);
   const [showBlocklist, setShowBlocklist] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLanguageSettings, setShowLanguageSettings] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -420,6 +424,7 @@ export const ProfilePage: React.FC<{
 
   const isAnySettingsSubPageOpen = Boolean(
     showGestureSettings ||
+    showLanguageSettings ||
     showNotificationSettings ||
     showBlocklist ||
     showPrivacyPolicy ||
@@ -430,6 +435,7 @@ export const ProfilePage: React.FC<{
   const isAnyModalOpen = Boolean(
     showSettings ||
     showGestureSettings ||
+    showLanguageSettings ||
     showNotificationSettings ||
     showBlocklist ||
     showPrivacyPolicy ||
@@ -1786,8 +1792,8 @@ export const ProfilePage: React.FC<{
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overscroll-none"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
-              <h2 className="text-lg font-bold text-apple-gray-900">設定</h2>
-              <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
+              <h2 className="text-lg font-bold text-apple-gray-900">{t('settings.title')}</h2>
+              <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">{t('settings.done')}</button>
             </div>
             
             <div className={`flex-1 ${
@@ -1883,7 +1889,7 @@ export const ProfilePage: React.FC<{
                 
                 {/* Basic Settings Section */}
                 <div className="px-4 py-3 bg-apple-gray-50/50 border-b border-apple-gray-50">
-                   <span className="text-[10px] font-black text-apple-gray-300 uppercase tracking-widest">基本設定</span>
+                   <span className="text-[10px] font-black text-apple-gray-300 uppercase tracking-widest">{t('settings.basic')}</span>
                 </div>
                 
                 <ProfileItem icon={Settings} label="手勢設定" onClick={() => setShowGestureSettings(true)} />
@@ -1945,15 +1951,26 @@ export const ProfilePage: React.FC<{
                   </button>
                 </div>
 
-                <div className="w-full flex items-center justify-between p-4 bg-white active:bg-apple-gray-50 transition-colors border-b border-apple-gray-50 last:border-0 cursor-not-allowed opacity-50">
+                <button
+                  type="button"
+                  onClick={() => setShowLanguageSettings(true)}
+                  className="w-full flex items-center justify-between p-4 bg-white active:bg-apple-gray-50 transition-colors border-b border-apple-gray-50 text-left"
+                  data-no-auto-translate="true"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-apple-gray-50 flex items-center justify-center text-apple-gray-600">
-                      <Search size={18} />
+                      <Globe size={18} />
                     </div>
-                    <span className="text-sm font-Semibold">語言 (Language)</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-Semibold">{t('settings.language')}</span>
+                      <span className="text-[10px] text-apple-gray-400 mt-0.5">{t('settings.languageSubtitle')}</span>
+                    </div>
                   </div>
-                  <span className="text-xs text-apple-gray-300">繁體中文</span>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#035096]">{languageLabel}</span>
+                    <ChevronRight size={16} className="text-apple-gray-200" />
+                  </div>
+                </button>
                 <ProfileItem
                   icon={Bell}
                   label="通知設定"
@@ -1997,6 +2014,11 @@ export const ProfilePage: React.FC<{
           </motion.div>
         )}
       </AnimatePresence>
+
+      <LanguageSettingsModal
+        isOpen={showLanguageSettings}
+        onClose={() => setShowLanguageSettings(false)}
+      />
 
       {/* 損毀護照（註銷帳號）確認視窗 */}
       <AnimatePresence>
