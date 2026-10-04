@@ -231,7 +231,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
 
       const notified = new Set<string>();
       for (const handle of mentionHandles) {
-        const target = mentionUsers.find(profile => {
+        const target = visibleMentionUsers.find(profile => {
           const username = (profile.username || '').toLowerCase();
           const displayName = (profile.displayName || '').toLowerCase();
           return username === handle || displayName === handle;
@@ -573,7 +573,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
       <UserMentionPickerModal
         isOpen={showReplyMentionPicker}
         onClose={() => setShowReplyMentionPicker(false)}
-        users={mentionUsers}
+        users={visibleMentionUsers}
         title="標註 SyncTime 用戶"
         onSelectUser={target => {
           const handle = target.username || target.displayName;
@@ -872,7 +872,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
   const handleChat = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!user || user.uid === post.authorId || !author || author.isDeleted) return;
+    if (!user || user.uid === post.authorId || !author || author.isDeleted || isUserBlocked(post.authorId)) return;
     const roomId = await getOrCreateChatRoom(user.uid, post.authorId);
     if (roomId && onChatClick) onChatClick(roomId);
   };
@@ -918,7 +918,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       const q = query(collection(db, 'users'), where('username', '==', cleanUsername));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        onAvatarClick?.(snap.docs[0].id);
+        const targetUid = snap.docs[0].id;
+        if (!isUserBlocked(targetUid)) onAvatarClick?.(targetUid);
         return;
       }
 
@@ -926,7 +927,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       const qDisplay = query(collection(db, 'users'), where('displayName', '==', username.replace(/^@/, '').trim()));
       const snapDisplay = await getDocs(qDisplay);
       if (!snapDisplay.empty) {
-        onAvatarClick?.(snapDisplay.docs[0].id);
+        const targetUid = snapDisplay.docs[0].id;
+        if (!isUserBlocked(targetUid)) onAvatarClick?.(targetUid);
         return;
       }
     } catch (err) {
@@ -937,6 +939,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   const isDeletedAuthor = !author || author.isDeleted;
   const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
   const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
+  const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
 
   return (
     <div className="border-b border-apple-gray-100/50 py-5 px-5 bg-white transition-colors">
@@ -1239,7 +1242,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                         onAvatarClick={onAvatarClick}
                         onLinkClick={(url) => setBrowserUrl(url)}
                         onMentionClick={handleMentionClick}
-                        mentionUsers={mentionUsers}
+                        mentionUsers={visibleMentionUsers}
                       />
                     ))
                   ) : (
