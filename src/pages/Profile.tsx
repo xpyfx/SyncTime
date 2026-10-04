@@ -3039,7 +3039,7 @@ export const ProfilePage: React.FC<{
                       <div className="min-w-0">
                         <div className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Created</div>
                         <div className="text-xs font-bold text-white truncate">
-                          {myTrips.length} Trips
+                          {myTrips.filter(trip => !isUserBlocked(trip.authorId)).length} Trips
                         </div>
                       </div>
                     </div>
@@ -4276,13 +4276,13 @@ export const ProfilePage: React.FC<{
                   onClick={() => setSavedTab('trips')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${savedTab === 'trips' ? 'bg-white shadow-apple-sm text-apple-gray-900' : 'text-apple-gray-300'}`}
                 >
-                  旅程 ({savedTrips.length})
+                  旅程 ({savedTrips.filter(trip => !isUserBlocked(trip.authorId)).length})
                 </button>
                 <button
                   onClick={() => setSavedTab('posts')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${savedTab === 'posts' ? 'bg-white shadow-apple-sm text-apple-gray-900' : 'text-apple-gray-300'}`}
                 >
-                  旅文 ({savedBarPosts.length})
+                  旅文 ({savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length})
                 </button>
               </div>
             </div>
