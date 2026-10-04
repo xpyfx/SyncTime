@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Beer, Bell, MessageCircle, User } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface NavbarProps {
   activeTab: string;
@@ -17,12 +18,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadChatCount = 0,
   unreadNotifCount = 0
 }) => {
+  const { t } = useLanguage();
   const tabs = [
-    { id: 'home', icon: Home, label: '主頁' },
-    { id: 'bar', icon: Beer, label: '旅吧' },
-    { id: 'chat', icon: MessageCircle, label: '聊天室' },
-    { id: 'notifications', icon: Bell, label: '通知' },
-    { id: 'profile', icon: User, label: '個人' }
+    { id: 'home', icon: Home, label: t('nav.home') },
+    { id: 'bar', icon: Beer, label: t('nav.bar') },
+    { id: 'chat', icon: MessageCircle, label: t('nav.chat') },
+    { id: 'notifications', icon: Bell, label: t('nav.notifications') },
+    { id: 'profile', icon: User, label: t('nav.profile') }
   ];
 
   const effectiveChatUnread = unreadChatCount > 0 ? unreadChatCount : (hasUnreadChat ? 1 : 0);
