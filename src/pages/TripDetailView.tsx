@@ -32,6 +32,8 @@ import { getTripDeletionInfo } from './Chat';
 import { ReportModal } from '../components/ReportModal';
 import { ShareTripModal } from '../components/ShareTripModal';
 import { OfficialBadge } from '../components/OfficialBadge';
+import { TranslatedUserText } from '../components/TranslatedUserText';
+import { detectTextLanguage } from '../lib/translation';
 
 interface CommentItemProps {
   comment: TripComment;
@@ -94,9 +96,11 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId
     if (!replyText.trim() || !user || isPostingReply) return;
     setIsPostingReply(true);
     try {
+      const originalLanguage = await detectTextLanguage(replyText.trim());
       await addDoc(collection(db, 'trips', tripId, 'comments', comment.id, 'replies'), {
         authorId: user.uid,
         text: replyText,
+        originalLanguage,
         createdAt: new Date().toISOString()
       });
       setReplyText('');
@@ -138,9 +142,18 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId
             )}
             <span className="text-[10px] text-apple-gray-300 font-medium">{new Date(comment.createdAt).toLocaleDateString()}</span>
           </div>
-          <p className="text-sm font-medium text-apple-gray-600 mt-1 leading-relaxed">
-            {comment.text}
-          </p>
+          <TranslatedUserText
+            text={comment.text}
+            originalLanguage={comment.originalLanguage}
+            compact
+            className="mt-1"
+          >
+            {(translatedText) => (
+              <p className="text-sm font-medium text-apple-gray-600 leading-relaxed">
+                {translatedText}
+              </p>
+            )}
+          </TranslatedUserText>
           <div className="flex items-center gap-4 mt-2">
             <button 
               onClick={handleToggleLike}
@@ -190,7 +203,18 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId
                   )}
                   <span className="text-[8px] text-apple-gray-300 font-medium">{new Date(r.createdAt).toLocaleDateString()}</span>
                 </div>
-                <p className="text-xs font-medium text-apple-gray-500 mt-0.5">{r.text}</p>
+                <TranslatedUserText
+                  text={r.text}
+                  originalLanguage={r.originalLanguage}
+                  compact
+                  className="mt-0.5"
+                >
+                  {(translatedText) => (
+                    <p className="text-xs font-medium text-apple-gray-500">
+                      {translatedText}
+                    </p>
+                  )}
+                </TranslatedUserText>
               </div>
             </div>
           ))}
@@ -733,9 +757,11 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
     const path = `trips/${tripId}/comments`;
     const commentText = newComment.trim();
     try {
+      const originalLanguage = await detectTextLanguage(commentText);
       await addDoc(collection(db, path), {
         authorId: user.uid,
         text: commentText,
+        originalLanguage,
         createdAt: new Date().toISOString()
       });
       // Increment comment count
@@ -1431,7 +1457,10 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
           <div className="space-y-3">
              <h3 className="font-bold text-apple-gray-400 text-sm">備註 (Note)</h3>
              <div className="p-6 bg-white border border-apple-gray-100 rounded-[32px] font-medium leading-relaxed text-apple-gray-600">
-               {trip.notes}
+               <TranslatedUserText
+                 text={trip.notes}
+                 originalLanguage={trip.originalLanguage}
+               />
              </div>
           </div>
         )}
