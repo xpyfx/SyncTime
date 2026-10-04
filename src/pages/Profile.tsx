@@ -39,7 +39,8 @@ import {
   UserX,
   Bot,
   Plus,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react';
 import { UserTagsSelectModal } from '../components/UserTagsSelectModal';
 import { getTagItem, DEFAULT_USER_TAGS } from '../data/userInterestTags';
@@ -1318,6 +1319,39 @@ export const ProfilePage: React.FC<{
     }
   };
 
+  const getPassportShareUrl = () => {
+    if (!user?.uid || typeof window === 'undefined') return '';
+
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('tab', 'profile');
+    url.searchParams.set('profileId', user.uid);
+    return url.toString();
+  };
+
+  const handleCopyPassportLink = async () => {
+    const passportShareUrl = getPassportShareUrl();
+    if (!passportShareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(passportShareUrl);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = passportShareUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+
+    setToastMessage({
+      text: '已複製你的個人護照連結',
+      type: 'success'
+    });
+  };
+
   const handleSearch = async () => {
     if (!searchId.trim()) return;
     setIsSearching(true);
@@ -2438,6 +2472,26 @@ export const ProfilePage: React.FC<{
                       onSearchClick={handleSearch}
                       onClear={() => setSearchId('')}
                     />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#B6cada]/70 bg-white px-4 py-3.5 shadow-apple-xs">
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-black text-apple-gray-900">
+                        分享個人護照
+                      </div>
+                      <p className="mt-0.5 text-[10.5px] leading-relaxed text-apple-gray-400">
+                        複製你的專屬連結，分享給朋友快速查看個人檔案並添加好友
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyPassportLink}
+                      className="shrink-0 h-10 px-3.5 rounded-xl bg-[#035096] text-white flex items-center justify-center gap-1.5 text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
+                      aria-label="複製個人護照連結"
+                    >
+                      <Copy size={14} strokeWidth={2.3} />
+                      <span>複製連結</span>
+                    </button>
                   </div>
 
                   {searchBlockedNotice && (
