@@ -823,7 +823,10 @@ export const ProfilePage: React.FC<{
     const unsubReviews = onSnapshot(qReviews, (snap) => {
       const items: UserReview[] = [];
       snap.forEach((docSnap) => {
-        items.push({ id: docSnap.id, ...docSnap.data() } as UserReview);
+        const item = { id: docSnap.id, ...docSnap.data() } as UserReview;
+        if (!isUserBlocked(item.reviewerId)) {
+          items.push(item);
+        }
       });
       // Sort on the client-side to prevent compound index requirement in Firestore
       items.sort((a, b) => {
@@ -838,7 +841,7 @@ export const ProfilePage: React.FC<{
     });
 
     return () => unsubReviews();
-  }, [effectiveUserId]);
+  }, [effectiveUserId, isUserBlocked]);
 
   // Load given reviews in real-time (only if viewing own profile)
   useEffect(() => {
@@ -863,6 +866,9 @@ export const ProfilePage: React.FC<{
 
       const enriched: UserReview[] = [];
       for (const item of items) {
+        if (item.targetUserId && isUserBlocked(item.targetUserId)) {
+          continue;
+        }
         if (item.targetUserId) {
           try {
             const userSnap = await getDoc(doc(db, 'users', item.targetUserId));
@@ -891,7 +897,7 @@ export const ProfilePage: React.FC<{
     });
 
     return () => unsubGivenReviews();
-  }, [effectiveUserId, isOwnProfile]);
+  }, [effectiveUserId, isOwnProfile, isUserBlocked]);
 
   const handleSaveBio = async () => {
     if (!user) return;
@@ -1261,10 +1267,14 @@ export const ProfilePage: React.FC<{
     const q = query(collection(db, 'users'), where(documentId(), 'in', safeFriends));
     return onSnapshot(
       q,
-      (s) => setFriendsList(s.docs.map(d => d.data() as UserProfile)),
+      (s) => setFriendsList(
+        s.docs
+          .map(d => d.data() as UserProfile)
+          .filter(friend => !isUserBlocked(friend.uid))
+      ),
       (err) => console.warn('Friends list listener warning:', err)
     );
-  }, [profile?.friends]);
+  }, [profile?.friends, isUserBlocked]);
 
   useEffect(() => {
     if (!showBlocklist || !myProfile?.blockedUsers?.length) return;
@@ -3227,9 +3237,9 @@ export const ProfilePage: React.FC<{
           <div className="mt-8 border-b border-apple-gray-100 px-4">
             <div className="flex justify-between relative px-2">
               {[
-                { id: 'trips', label: `旅程 (${isPassportExpired ? 0 : myTrips.length})` },
-                { id: 'saved', label: `收藏 (${isPassportExpired ? 0 : savedTrips.length + savedBarPosts.length})` },
-                { id: 'friends', label: `好友 (${isPassportExpired ? 0 : (profile?.friends?.length || 0)})` },
+                { id: 'trips', label: `旅程 (${isPassportExpired ? 0 : myTrips.filter(t => !isUserBlocked(t.authorId)).length})` },
+                { id: 'saved', label: `收藏 (${isPassportExpired ? 0 : savedTrips.filter(t => !isUserBlocked(t.authorId)).length + savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length})` },
+                { id: 'friends', label: `好友 (${isPassportExpired ? 0 : firendsList.filter(friend => !isUserBlocked(friend.uid)).length})` },
                 { id: 'posts', label: `發佈 (${isPassportExpired ? 0 : postsCount})` },
                 { id: 'about', label: '關於' }
               ].map((tab) => (
@@ -3282,6 +3292,7 @@ export const ProfilePage: React.FC<{
               {(() => {
                 const s = tripsSearch.toLowerCase();
                 const filtered = myTrips.filter(t => {
+                  if (isUserBlocked(t.authorId)) return false;
                   const now = new Date();
                   const year = now.getFullYear();
                   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -3356,6 +3367,7 @@ export const ProfilePage: React.FC<{
                 const s = savedSearch.toLowerCase();
                 if (savedTab === 'trips') {
                   const filtered = savedTrips.filter(t => {
+                    if (isUserBlocked(t.authorId)) return false;
                     if (!s) return true;
                     const author = barAuthors[t.authorId];
                     return (
@@ -3373,6 +3385,7 @@ export const ProfilePage: React.FC<{
                   );
                 } else {
                   const filtered = savedBarPosts.filter(post => {
+                    if (isUserBlocked(post.authorId)) return false;
                     if (!s) return true;
                     const author = barAuthors[post.authorId];
                     return (
@@ -3408,6 +3421,7 @@ export const ProfilePage: React.FC<{
               {(() => {
                 const s = friendsSearch.toLowerCase();
                 const filtered = firendsList.filter(f => {
+                  if (isUserBlocked(f.uid)) return false;
                   if (!s) return true;
                   return (
                     (f.displayName?.toLowerCase() || '').includes(s) ||
