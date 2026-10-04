@@ -31,9 +31,11 @@ const AppContent = () => {
       const params = new URLSearchParams(window.location.search);
       const pId = params.get('postId') || params.get('post');
       const tripId = params.get('tripId') || params.get('trip');
+      const profileId = params.get('profileId') || params.get('profile');
       const tabParam = params.get('tab');
       if (pId) return 'bar';
       if (tripId) return 'home';
+      if (profileId) return 'profile';
       if (tabParam && ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)) {
         return tabParam;
       }
@@ -61,7 +63,14 @@ const AppContent = () => {
       return null;
     }
   });
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('profileId') || params.get('profile') || null;
+    } catch {
+      return null;
+    }
+  });
   const [viewingUserPostsId, setViewingUserPostsId] = useState<string | null>(null);
 
   // 記憶旅吧使用者最後選擇的分類（熱門、推薦、好友）
@@ -114,6 +123,7 @@ const AppContent = () => {
         const params = new URLSearchParams(window.location.search);
         const pId = params.get('postId') || params.get('post');
         const sharedTripId = params.get('tripId') || params.get('trip');
+        const sharedProfileId = params.get('profileId') || params.get('profile');
         const tabParam = params.get('tab');
 
         if (pId) {
@@ -127,9 +137,15 @@ const AppContent = () => {
           if (!pId) setActiveTab('home');
         }
 
+        if (sharedProfileId) {
+          setSelectedUserId(sharedProfileId);
+          if (!pId && !sharedTripId) setActiveTab('profile');
+        }
+
         if (
           !pId &&
           !sharedTripId &&
+          !sharedProfileId &&
           tabParam &&
           ['home', 'bar', 'add', 'chat', 'notifications', 'profile'].includes(tabParam)
         ) {
@@ -519,7 +535,17 @@ const AppContent = () => {
           >
             <UserProfileView 
               userId={selectedUserId} 
-              onBack={() => setSelectedUserId(null)} 
+              onBack={() => {
+                setSelectedUserId(null);
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('profileId');
+                  url.searchParams.delete('profile');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {
+                  // ignore
+                }
+              }} 
               onChatOpen={handleOpenChat}
               onTripClick={setSelectedTripId}
               onUserClick={setSelectedUserId}
