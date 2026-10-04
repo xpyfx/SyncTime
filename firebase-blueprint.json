@@ -130,6 +130,20 @@
         "authorId": { "type": "string" },
         "content": { "type": "string" },
         "imageUrl": { "type": "string" },
+        "media": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["image", "video"] },
+              "url": { "type": "string" },
+              "duration": { "type": "number" }
+            },
+            "required": ["type", "url"]
+          }
+        },
+        "moderationStatus": { "type": "string", "enum": ["approved", "blocked", "pending"] },
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" },
         "favoritesCount": { "type": "number" },
