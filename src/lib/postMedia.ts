@@ -104,8 +104,8 @@ const createVideoModerationFrames = async (file: File): Promise<string[]> => {
     video.src = objectUrl;
 
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error('VIDEO_METADATA_FAILED'));
+      video.onloadeddata = () => resolve();
+      video.onerror = () => reject(new Error('VIDEO_DATA_FAILED'));
     });
 
     const duration = Number.isFinite(video.duration) ? video.duration : 0;
