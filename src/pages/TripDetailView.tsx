@@ -42,7 +42,7 @@ interface CommentItemProps {
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId, authorProfile, onAvatarClick }) => {
-  const { user } = useAuth();
+  const { user, isUserBlocked } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
   const [replies, setReplies] = useState<CommentReply[]>([]);
@@ -108,6 +108,8 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId
     }
   };
 
+  const visibleReplies = replies.filter(reply => !isUserBlocked(reply.authorId));
+
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
@@ -158,9 +160,9 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, tripAuthorId, tripId
       </div>
 
       {/* Replies */}
-      {replies.length > 0 && (
+      {visibleReplies.length > 0 && (
         <div className="ml-12 space-y-4 pt-1 border-l-2 border-apple-gray-50 pl-4">
-          {replies.map(r => (
+          {visibleReplies.map(r => (
             <div key={r.id} className="flex gap-3">
               <button 
                 type="button"
@@ -230,12 +232,13 @@ const FriendItem: React.FC<{
   onAdd: (p: UserProfile) => void | Promise<void>,
   onAvatarClick?: (uid: string) => void
 }> = ({ uid, onAdd, onAvatarClick }) => {
+  const { isUserBlocked } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   useEffect(() => {
     getDoc(doc(db, 'users', uid)).then(s => s.exists() && setProfile(s.data() as UserProfile));
   }, [uid]);
 
-  if (!profile) return null;
+  if (!profile || isUserBlocked(uid)) return null;
   return (
     <div className="flex items-center justify-between p-3 bg-white border border-apple-gray-100 rounded-xl shadow-apple-sm">
       <div 
@@ -676,7 +679,13 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
       const q = query(collection(db, 'users'), where('username', '==', searchMemberId.trim().toLowerCase()));
       const s = await getDocs(q);
       if (!s.empty) {
-        setSearchMemberResult(s.docs[0].data() as UserProfile);
+        const found = s.docs[0].data() as UserProfile;
+        if (isUserBlocked(found.uid)) {
+          setSearchMemberResult(null);
+          alert('找不到該用戶');
+        } else {
+          setSearchMemberResult(found);
+        }
       } else {
         alert('找不到該用戶');
       }
@@ -894,6 +903,9 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
       </div>
     );
   }
+
+  const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
+  const visibleMemberProfiles = memberProfiles.filter(member => !isUserBlocked(member.uid));
 
   const handleOpenGroupChat = async () => {
     if (!user || !tripId || !trip) return;
@@ -1154,7 +1166,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
           <div className="flex items-center gap-2 mt-2 -mb-2 overflow-x-auto no-scrollbar py-2">
             <span className="text-[10px] font-bold text-apple-gray-200 uppercase tracking-widest mr-2">成員</span>
             <div className="flex">
-              {memberProfiles.map((m, idx) => (
+              {visibleMemberProfiles.map((m, idx) => (
                 <motion.div 
                   key={m.uid} 
                   initial={{ opacity: 0, scale: 0.5, x: -20 }}
@@ -1177,13 +1189,13 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                   <Plus size={14} />
                 </button>
               )}
-              {memberProfiles.length === 0 && !isAuthor && (
+              {visibleMemberProfiles.length === 0 && !isAuthor && (
                 <span className="text-[10px] text-apple-gray-200 italic ml-2 mt-2">尚無成員加入</span>
               )}
             </div>
           </div>
 
-          {isTripFinished && isParticipant && memberProfiles.some(m => m.uid !== user?.uid) && (
+          {isTripFinished && isParticipant && visibleMemberProfiles.some(m => m.uid !== user?.uid) && (
             <div className="bg-blue-50/70 border border-blue-100 p-4 rounded-[24px] mt-4 flex items-center justify-between shadow-apple-xs animate-fade-in">
               <div className="space-y-1">
                 <span className="text-xs font-black text-apple-gray-900 block flex items-center gap-1.5">
@@ -1426,10 +1438,10 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
 
         {/* Comments Section */}
         <div className="space-y-6 pt-4">
-          <h3 className="font-bold text-lg tracking-tight">留言 ({comments.length})</h3>
+          <h3 className="font-bold text-lg tracking-tight">留言 ({visibleComments.length})</h3>
           
           <div className="space-y-6">
-            {comments.map(c => (
+            {visibleComments.map(c => (
               <CommentItem 
                 key={c.id}
                 comment={c}
@@ -1472,7 +1484,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
             <div className="p-4 space-y-4">
               {!showAddMember ? (
                 <>
-                  {memberProfiles.length > 0 ? memberProfiles.map(m => (
+                  {visibleMemberProfiles.length > 0 ? visibleMemberProfiles.map(m => (
                     <div key={m.uid} className="flex items-center justify-between p-4 bg-apple-gray-50 rounded-2xl">
                       <div 
                         className="flex items-center gap-3 cursor-pointer hover:text-apple-blue transition-colors group"
