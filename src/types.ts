@@ -61,6 +61,7 @@ export interface UserProfile {
   interestTags?: string[]; // User selected interest tags (max 6)
   customExpenseCategories?: string[]; // User-defined expense categories persisted across trips
   pushNotificationPreferences?: PushNotificationPreferences; // System push notification preferences
+  preferredLanguage?: 'zh-Hant' | 'en' | 'ko' | 'it'; // App interface / translation display language
   isOfficial?: boolean; // SyncTime official/team/partner account badge
   isDeleted?: boolean;
   deletedAt?: string;
@@ -136,6 +137,7 @@ export interface Trip {
   status: TripStatus;
   isFriendsOnly?: boolean;
   createdAt: string;
+  originalLanguage?: string;
   commentsCount?: number;
   members?: string[];
   chatRoomId?: string;
@@ -181,6 +183,7 @@ export interface TripComment {
   id: string;
   authorId: string;
   text: string;
+  originalLanguage?: string;
   createdAt: string;
   likesCount?: number;
 }
@@ -189,6 +192,7 @@ export interface CommentReply {
   id: string;
   authorId: string;
   text: string;
+  originalLanguage?: string;
   createdAt: string;
 }
 
@@ -196,6 +200,7 @@ export interface BarCommentReply {
   id: string;
   authorId: string;
   text: string;
+  originalLanguage?: string;
   createdAt: string;
   likesCount?: number;
   replyToAuthorId?: string;
@@ -206,6 +211,7 @@ export interface BarComment {
   id: string;
   authorId: string;
   content: string;
+  originalLanguage?: string;
   createdAt: string;
   likesCount?: number;
   repliesCount?: number;
@@ -225,6 +231,7 @@ export interface BarPost {
   images?: string[];
   media?: BarPostMedia[];
   moderationStatus?: 'approved' | 'blocked' | 'pending';
+  originalLanguage?: string;
   likesCount?: number;
   commentsCount?: number;
   favoritesCount?: number;
@@ -422,6 +429,7 @@ export interface Message {
   id: string;
   senderId: string;
   text: string;
+  originalLanguage?: string;
   sharedPostId?: string;
   sharedPost?: SharedBarPostCardData;
   sharedTripId?: string;
