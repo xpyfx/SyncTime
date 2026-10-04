@@ -222,7 +222,7 @@ export const TravelBarView: React.FC<{
           (u.username && u.username.toLowerCase() === tag) || 
           (u.displayName && u.displayName.toLowerCase() === tag)
         );
-        if (found && !mentionedUserIds.includes(found.uid)) {
+        if (found && !isUserBlocked(found.uid) && !mentionedUserIds.includes(found.uid)) {
           mentionedUserIds.push(found.uid);
           mentionedProfiles.push(found);
         }
@@ -419,14 +419,14 @@ export const TravelBarView: React.FC<{
     // If targetPostId is active, pin targetPost at the very top (index 0) of the list!
     if (targetPostId) {
       const target = posts.find(p => p.id === targetPostId) || extraTargetPost;
-      if (target) {
+      if (target && !isUserBlocked(target.authorId)) {
         const remainder = list.filter(p => p.id !== target.id);
         return [target, ...remainder];
       }
     }
 
     return list;
-  }, [activeTab, rankedPosts, filteredPosts, selectedInterestTag, targetPostId, posts, extraTargetPost]);
+  }, [activeTab, rankedPosts, filteredPosts, selectedInterestTag, targetPostId, posts, extraTargetPost, isUserBlocked]);
 
   return (
     <div className="flex flex-col min-h-screen bg-apple-gray-50">
@@ -587,7 +587,7 @@ export const TravelBarView: React.FC<{
         )}
 
         {/* 專屬旅文置頂提示橫幅 (當從外部專屬連結進入時) */}
-        {targetPostId && (
+        {targetPostId && !isUserBlocked((posts.find(p => p.id === targetPostId) || extraTargetPost)?.authorId || '') && (
           <div className="bg-[#E6F5FF] border border-[#B6cada] rounded-2xl p-3 px-4 flex items-center justify-between text-xs text-[#035096] shadow-apple-xs mb-3 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center gap-2 font-bold min-w-0">
               <span className="w-6 h-6 rounded-full bg-[#035096] text-white flex items-center justify-center shrink-0 shadow-2xs">
