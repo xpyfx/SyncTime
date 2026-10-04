@@ -22,7 +22,7 @@ import { getRoomUnreadCount, ChatRoom } from './types';
 
 
 const AppContent = () => {
-  const { user, profile, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
+  const { user, profile, blockedByUsers, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   
   // Persistent category & tab states (記憶使用者最後選擇的分類與主分頁)
@@ -176,9 +176,17 @@ const AppContent = () => {
     );
 
     const unsubRooms = onSnapshot(qRooms, (snapshot) => {
+      const blockedIds = new Set([
+        ...(profile?.blockedUsers || []),
+        ...(blockedByUsers || [])
+      ]);
       let sum = 0;
       snapshot.docs.forEach(d => {
         const data = d.data() as ChatRoom;
+        if (data.type !== 'group') {
+          const otherParticipant = data.participants?.find(id => id !== user.uid);
+          if (otherParticipant && blockedIds.has(otherParticipant)) return;
+        }
         sum += getRoomUnreadCount(data, user.uid);
       });
       setUnreadChatCount(sum);
@@ -195,7 +203,14 @@ const AppContent = () => {
     );
 
     const unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
-      const nonChatCount = snapshot.docs.filter(d => d.data().type !== 'chat_message').length;
+      const blockedIds = new Set([
+        ...(profile?.blockedUsers || []),
+        ...(blockedByUsers || [])
+      ]);
+      const nonChatCount = snapshot.docs.filter(d => {
+        const data = d.data();
+        return data.type !== 'chat_message' && (!data.fromId || !blockedIds.has(data.fromId));
+      }).length;
       setUnreadNotifCount(nonChatCount);
     }, (err) => {
       console.warn('Pending notifications listener warning:', err);
@@ -205,7 +220,7 @@ const AppContent = () => {
       unsubRooms();
       unsubNotifs();
     };
-  }, [user?.uid]);
+  }, [user?.uid, profile?.blockedUsers, blockedByUsers]);
 
   const handleOpenChat = (roomId: string) => {
     setSelectedChatRoomId(roomId);
