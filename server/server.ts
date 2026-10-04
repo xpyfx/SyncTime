@@ -345,6 +345,121 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Text translation fallback for devices without Chrome's built-in Translator API.
+  // Original user content is never mutated; this endpoint only returns a translated view.
+  app.post('/api/translate/text', async (req, res) => {
+    try {
+      const { text, sourceLanguage, targetLanguage } = req.body || {};
+      const supportedTargets = new Set(['zh-Hant', 'en', 'ko', 'it']);
+
+      if (
+        typeof text !== 'string' ||
+        !text.trim() ||
+        text.length > 12000 ||
+        typeof targetLanguage !== 'string' ||
+        !supportedTargets.has(targetLanguage)
+      ) {
+        return res.status(400).json({
+          error: 'invalid translation request'
+        });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        return res.status(503).json({
+          error: 'translation unavailable',
+          code: 'GEMINI_API_KEY_MISSING'
+        });
+      }
+
+      const languageNames: Record<string, string> = {
+        'zh-Hant': 'Traditional Chinese (Taiwan)',
+        zh: 'Chinese',
+        en: 'English',
+        ko: 'Korean',
+        it: 'Italian',
+        und: 'the detected source language'
+      };
+
+      const sourceName =
+        languageNames[String(sourceLanguage || 'und')] ||
+        String(sourceLanguage || 'the detected source language');
+      const targetName =
+        languageNames[targetLanguage] ||
+        targetLanguage;
+
+      const apiResponse = await fetch(
+        'https://generativelanguage.googleapis.com/v1/interactions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify({
+            model: 'gemini-3.8-flash',
+            system_instruction:
+              'You are a translation engine for a travel social app. Translate faithfully. Preserve @mentions, #hashtags, URLs, emoji, line breaks, punctuation, names, numbers and dates. Do not summarize, explain, censor, embellish, or answer the text. Output only the translation.',
+            input:
+              `Translate from ${sourceName} to ${targetName}:\n\n${text}`,
+            response_format: {
+              type: 'text',
+              mime_type: 'text/plain'
+            }
+          })
+        }
+      );
+
+      const responseData: any = await apiResponse.json().catch(() => ({}));
+
+      if (!apiResponse.ok) {
+        return res.status(apiResponse.status).json({
+          error: responseData?.error?.message || 'translation failed',
+          code:
+            apiResponse.status === 402
+              ? 'GEMINI_PAYMENT_REQUIRED'
+              : apiResponse.status === 429
+                ? 'GEMINI_QUOTA_EXCEEDED'
+                : 'GEMINI_TRANSLATION_FAILED'
+        });
+      }
+
+      const translatedText = Array.isArray(responseData?.steps)
+        ? responseData.steps
+            .filter((step: any) => step?.type === 'model_output')
+            .flatMap((step: any) =>
+              Array.isArray(step?.content) ? step.content : []
+            )
+            .filter(
+              (part: any) =>
+                part?.type === 'text' && typeof part?.text === 'string'
+            )
+            .map((part: any) => part.text)
+            .join('')
+            .trim()
+        : '';
+
+      if (!translatedText) {
+        return res.status(503).json({
+          error: 'empty translation response',
+          code: 'GEMINI_EMPTY_TRANSLATION'
+        });
+      }
+
+      return res.json({
+        translatedText,
+        sourceLanguage: sourceLanguage || 'und',
+        targetLanguage
+      });
+    } catch (error: any) {
+      console.error('Error in /api/translate/text:', error);
+      return res.status(500).json({
+        error: 'translation failed',
+        code: 'TRANSLATION_INTERNAL_ERROR'
+      });
+    }
+  });
+
   // 2. Visual safety moderation for Travel Bar photos/videos.
   // The client sends compressed image frames only; unsafe media is rejected before upload.
   app.post('/api/moderate/media', async (req, res) => {
