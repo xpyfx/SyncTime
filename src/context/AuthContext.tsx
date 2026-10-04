@@ -666,6 +666,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deleteDoc(requestDoc.ref)
           )
         );
+
+        const [sentNotifSnap, receivedNotifSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, 'notifications'),
+            where('type', '==', 'friend_request'),
+            where('fromId', '==', user.uid),
+            where('toId', '==', targetUid),
+            where('status', '==', 'pending')
+          )),
+          getDocs(query(
+            collection(db, 'notifications'),
+            where('type', '==', 'friend_request'),
+            where('fromId', '==', targetUid),
+            where('toId', '==', user.uid),
+            where('status', '==', 'pending')
+          ))
+        ]);
+
+        await Promise.all(
+          [...sentNotifSnap.docs, ...receivedNotifSnap.docs].map(notificationDoc =>
+            deleteDoc(notificationDoc.ref)
+          )
+        );
       } catch (requestCleanupError) {
         console.warn('Failed to clear pending friend requests after block:', requestCleanupError);
       }
