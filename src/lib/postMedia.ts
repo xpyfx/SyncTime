@@ -151,7 +151,19 @@ export const moderatePostMedia = async (
   });
 
   if (!response.ok) {
-    throw new Error('MEDIA_MODERATION_UNAVAILABLE');
+    let payload: any = null;
+    try {
+      payload = await response.json();
+    } catch {
+      // Ignore invalid error bodies.
+    }
+
+    const error = new Error(
+      payload?.code || payload?.error || 'MEDIA_MODERATION_UNAVAILABLE'
+    );
+    (error as any).code = payload?.code;
+    (error as any).details = payload?.details;
+    throw error;
   }
 
   const result = await response.json();
