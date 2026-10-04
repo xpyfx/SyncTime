@@ -942,6 +942,19 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
   const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
 
+  const legacyImageUrls = Array.from(
+    new Set(
+      [post.imageUrl, ...(post.images || [])].filter(
+        (value): value is string => Boolean(value)
+      )
+    )
+  );
+
+  const displayMedia =
+    Array.isArray(post.media) && post.media.length > 0
+      ? post.media.slice(0, 10)
+      : legacyImageUrls.map(url => ({ type: 'image' as const, url }));
+
   return (
     <div className="border-b border-apple-gray-100/50 py-5 px-5 bg-white transition-colors">
       <div className="flex gap-4">
@@ -1150,9 +1163,41 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             </div>
           )}
 
-          {post.imageUrl && (
-            <div className="rounded-[24px] overflow-hidden border border-apple-gray-100 my-3 shadow-apple-sm">
-              <img src={post.imageUrl} alt="post" className="w-full h-auto max-h-96 object-cover" referrerPolicy="no-referrer" />
+          {displayMedia.length > 0 && (
+            <div
+              className="my-3 flex gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-[24px]"
+              onClick={event => event.stopPropagation()}
+            >
+              {displayMedia.map((media, index) => (
+                <div
+                  key={`${media.type}-${media.url}-${index}`}
+                  className="relative min-w-full aspect-[4/3] snap-center overflow-hidden rounded-[24px] border border-apple-gray-100 bg-black/5 shadow-apple-sm"
+                >
+                  {media.type === 'video' ? (
+                    <video
+                      src={media.url}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover bg-black"
+                    />
+                  ) : (
+                    <img
+                      src={media.url}
+                      alt={`旅吧貼文照片 ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                  )}
+
+                  {displayMedia.length > 1 && (
+                    <span className="absolute top-2.5 right-2.5 px-2 py-1 rounded-full bg-black/55 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
+                      {index + 1}/{displayMedia.length}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
