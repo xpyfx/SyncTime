@@ -44,6 +44,8 @@ import { ShareBarPostModal } from './ShareBarPostModal';
 import { OfficialBadge } from './OfficialBadge';
 import { UserMentionPickerModal } from './UserMentionPickerModal';
 import { PulseLikeButton } from './PulseLikeButton';
+import { TranslatedUserText } from './TranslatedUserText';
+import { detectTextLanguage } from '../lib/translation';
 
 interface BarPostCardProps {
   post: BarPost;
@@ -190,9 +192,11 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
     setIsPostingReply(true);
 
     try {
+      const originalLanguage = await detectTextLanguage(replyContent);
       await addDoc(collection(db, 'barPosts', postId, 'comments', comment.id, 'replies'), {
         authorId: user.uid,
         text: replyContent,
+        originalLanguage,
         replyToAuthorId: comment.authorId,
         replyToAuthorName: commentAuthor?.displayName || '用戶',
         likesCount: 0,
@@ -381,12 +385,20 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
 
             {/* Comment Text with URL & @Mention parsing */}
             <div className="text-[12px] leading-relaxed text-apple-gray-700">
-              <FormattedPostText 
-                content={comment.content} 
-                className="text-[12px] leading-relaxed text-apple-gray-700 font-normal"
-                onLinkClick={onLinkClick}
-                onMentionClick={onMentionClick}
-              />
+              <TranslatedUserText
+                text={comment.content}
+                originalLanguage={comment.originalLanguage}
+                compact
+              >
+                {(translatedText) => (
+                  <FormattedPostText
+                    content={translatedText}
+                    className="text-[12px] leading-relaxed text-apple-gray-700 font-normal"
+                    onLinkClick={onLinkClick}
+                    onMentionClick={onMentionClick}
+                  />
+                )}
+              </TranslatedUserText>
             </div>
           </div>
 
@@ -476,12 +488,20 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                     </div>
 
                     <div className="text-[11.5px] leading-relaxed text-apple-gray-700">
-                      <FormattedPostText
-                        content={r.text}
-                        className="text-[11.5px] leading-relaxed text-apple-gray-700 font-normal"
-                        onLinkClick={onLinkClick}
-                        onMentionClick={onMentionClick}
-                      />
+                      <TranslatedUserText
+                        text={r.text}
+                        originalLanguage={r.originalLanguage}
+                        compact
+                      >
+                        {(translatedText) => (
+                          <FormattedPostText
+                            content={translatedText}
+                            className="text-[11.5px] leading-relaxed text-apple-gray-700 font-normal"
+                            onLinkClick={onLinkClick}
+                            onMentionClick={onMentionClick}
+                          />
+                        )}
+                      </TranslatedUserText>
                     </div>
                   </div>
 
@@ -784,9 +804,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     setIsPostingComment(true);
 
     try {
+      const originalLanguage = await detectTextLanguage(commentContent);
       await addDoc(collection(db, 'barPosts', post.id, 'comments'), {
         authorId: user.uid,
         content: commentContent,
+        originalLanguage,
         likesCount: 0,
         repliesCount: 0,
         createdAt: new Date().toISOString()
@@ -892,7 +914,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     if (!editedContent.trim()) return;
     const path = `barPosts/${post.id}`;
     try {
-      await updateDoc(doc(db, path), { content: editedContent });
+      const originalLanguage = await detectTextLanguage(editedContent);
+      await updateDoc(doc(db, path), {
+        content: editedContent,
+        originalLanguage
+      });
       setIsEditing(false);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, path);
@@ -1143,12 +1169,19 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             <div className="space-y-1.5">
               {/* Formatted Post Content with In-App Browser Link Triggers and @Mentions */}
               <div className="text-[15px] leading-relaxed font-normal text-apple-gray-600">
-                <FormattedPostText
-                  content={post.content}
-                  className="text-[15px] leading-relaxed font-normal text-apple-gray-700"
-                  onLinkClick={(url) => setBrowserUrl(url)}
-                  onMentionClick={handleMentionClick}
-                />
+                <TranslatedUserText
+                  text={post.content}
+                  originalLanguage={post.originalLanguage}
+                >
+                  {(translatedText) => (
+                    <FormattedPostText
+                      content={translatedText}
+                      className="text-[15px] leading-relaxed font-normal text-apple-gray-700"
+                      onLinkClick={(url) => setBrowserUrl(url)}
+                      onMentionClick={handleMentionClick}
+                    />
+                  )}
+                </TranslatedUserText>
               </div>
 
               {Array.isArray(post.tags) && post.tags.length > 0 && !recommendationReason && (
