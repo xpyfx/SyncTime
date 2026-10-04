@@ -166,9 +166,13 @@ export const TravelBarView: React.FC<{
         error?.details || ''
       );
 
-      const missingApiKey =
-        error?.code === 'GEMINI_API_KEY_MISSING' ||
-        error?.message === 'GEMINI_API_KEY_MISSING';
+      const reason =
+        error?.userMessage ||
+        (
+          error?.code === 'GEMINI_API_KEY_MISSING'
+            ? '安全檢測服務尚未設定完成。'
+            : '安全檢測暫時無法完成。'
+        );
 
       // A service/network/configuration error is not a policy violation.
       // Keep the user's media visible and never label it as unsafe.
@@ -178,19 +182,13 @@ export const TravelBarView: React.FC<{
             ? {
                 ...current,
                 status: 'error',
-                reason: missingApiKey
-                  ? '安全檢測服務尚未設定'
-                  : '安全檢測暫時無法完成'
+                reason
               }
             : current
         )
       );
 
-      window.alert(
-        missingApiKey
-          ? '安全檢測服務尚未設定完成；此照片並未被判定為違規。'
-          : '安全檢測暫時無法完成；此照片並未被判定為違規。請稍後重新檢測。'
-      );
+      window.alert(`${reason} 此照片並未被判定為違規。`);
     }
   };
 
@@ -1001,9 +999,7 @@ export const TravelBarView: React.FC<{
                         <div className="absolute inset-x-1.5 bottom-1.5 rounded-xl bg-amber-50/95 border border-amber-200 shadow-sm px-2 py-1.5 backdrop-blur-sm">
                           <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[9px] font-bold text-amber-700 leading-tight">
-                              {item.reason === '安全檢測服務尚未設定'
-                                ? '安全檢測服務尚未設定'
-                                : '檢測暫時失敗，未判定違規'}
+                              {item.reason || '安全檢測暫時無法完成'}
                             </span>
                             <button
                               type="button"
