@@ -3342,13 +3342,13 @@ export const ProfilePage: React.FC<{
                 onClick={() => setSavedTab('trips')}
                 className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all ${savedTab === 'trips' ? 'bg-white shadow-apple-xs text-apple-gray-900' : 'text-apple-gray-300'}`}
               >
-                旅程 ({savedTrips.length})
+                旅程 ({savedTrips.filter(trip => !isUserBlocked(trip.authorId)).length})
               </button>
               <button
                 onClick={() => setSavedTab('posts')}
                 className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all ${savedTab === 'posts' ? 'bg-white shadow-apple-xs text-apple-gray-900' : 'text-apple-gray-300'}`}
               >
-                旅文 ({savedBarPosts.length})
+                旅文 ({savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length})
               </button>
             </div>
 
@@ -4226,6 +4226,7 @@ export const ProfilePage: React.FC<{
             <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {(() => {
                 const filtered = myTrips.filter(t => {
+                  if (isUserBlocked(t.authorId)) return false;
                   const now = new Date();
                   const year = now.getFullYear();
                   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -4288,7 +4289,7 @@ export const ProfilePage: React.FC<{
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {savedTab === 'trips' ? (
-                savedTrips.length ? savedTrips.map(trip => (
+                savedTrips.filter(trip => !isUserBlocked(trip.authorId)).length ? savedTrips.filter(trip => !isUserBlocked(trip.authorId)).map(trip => (
                   <TripCard key={trip.id} trip={trip} onClick={() => {
                     setShowSaved(false);
                     onTripClick(trip.id);
@@ -4297,7 +4298,7 @@ export const ProfilePage: React.FC<{
                   <div className="text-center py-20 text-apple-gray-300 italic">尚未收藏任何旅程</div>
                 )
               ) : (
-                savedBarPosts.length ? savedBarPosts.map(post => (
+                savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length ? savedBarPosts.filter(post => !isUserBlocked(post.authorId)).map(post => (
                   <BarPostCard key={post.id} post={post} author={barAuthors[post.authorId]} />
                 )) : (
                   <div className="text-center py-20 text-apple-gray-300 italic">尚未收藏任何旅文</div>
@@ -4326,20 +4327,20 @@ export const ProfilePage: React.FC<{
                   onClick={() => setHiddenTab('trips')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${hiddenTab === 'trips' ? 'bg-white shadow-apple-sm text-apple-gray-900' : 'text-apple-gray-300'}`}
                 >
-                  徵文 ({hiddenTripsData.length})
+                  徵文 ({hiddenTripsData.filter(trip => !isUserBlocked(trip.authorId)).length})
                 </button>
                 <button
                   onClick={() => setHiddenTab('posts')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${hiddenTab === 'posts' ? 'bg-white shadow-apple-sm text-apple-gray-900' : 'text-apple-gray-300'}`}
                 >
-                  旅文 ({hiddenBarPostsData.length})
+                  旅文 ({hiddenBarPostsData.filter(post => !isUserBlocked(post.authorId)).length})
                 </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-6 pb-[max(env(safe-area-inset-bottom,0px),32px)]">
               {hiddenTab === 'trips' ? (
-                hiddenTripsData.length ? hiddenTripsData.map(trip => (
+                hiddenTripsData.filter(trip => !isUserBlocked(trip.authorId)).length ? hiddenTripsData.filter(trip => !isUserBlocked(trip.authorId)).map(trip => (
                   <div key={trip.id} className="relative">
                     <TripCard trip={trip} onClick={() => onTripClick(trip.id)} />
                     <button 
@@ -4356,7 +4357,7 @@ export const ProfilePage: React.FC<{
                   <div className="text-center py-20 text-apple-gray-300 italic">目前沒有隱藏的徵文</div>
                 )
               ) : (
-                hiddenBarPostsData.length ? hiddenBarPostsData.map(post => (
+                hiddenBarPostsData.filter(post => !isUserBlocked(post.authorId)).length ? hiddenBarPostsData.filter(post => !isUserBlocked(post.authorId)).map(post => (
                   <div key={post.id} className="relative">
                     <BarPostCard post={post} author={barAuthors[post.authorId]} />
                     <button 
