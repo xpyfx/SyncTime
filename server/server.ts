@@ -413,6 +413,17 @@ async function startServer() {
         }
 
         if (
+          status === 402 ||
+          normalized.includes('payment_required') ||
+          normalized.includes('payment required')
+        ) {
+          return {
+            code: 'GEMINI_PAYMENT_REQUIRED',
+            message: 'Gemini API 專案的預付額度已用完；請補充額度，或改用 Free Tier 專案的 API Key。'
+          };
+        }
+
+        if (
           status === 429 ||
           normalized.includes('quota') ||
           normalized.includes('resource_exhausted') ||
@@ -528,6 +539,21 @@ async function startServer() {
           break;
         } catch (error: any) {
           lastServiceError = error;
+
+          if (
+            [
+              'GEMINI_PAYMENT_REQUIRED',
+              'GEMINI_API_KEY_INVALID',
+              'GEMINI_API_KEY_MISSING'
+            ].includes(error?.code)
+          ) {
+            console.error(
+              `Media moderation cannot continue with ${model}:`,
+              String(error?.message || error || '')
+            );
+            break;
+          }
+
           console.warn(
             `Media moderation Interactions API call for ${model} failed; trying fallback:`,
             String(error?.message || error || '')
@@ -549,9 +575,11 @@ async function startServer() {
             lastServiceError?.userMessage ||
             '安全檢測服務暫時無法完成。',
           retryable:
-            !['GEMINI_API_KEY_INVALID', 'GEMINI_API_KEY_MISSING'].includes(
-              lastServiceError?.code
-            ),
+            ![
+              'GEMINI_API_KEY_INVALID',
+              'GEMINI_API_KEY_MISSING',
+              'GEMINI_PAYMENT_REQUIRED'
+            ].includes(lastServiceError?.code),
           details:
             process.env.NODE_ENV === 'production'
               ? undefined
