@@ -185,6 +185,8 @@ export const ShareBarPostModal: React.FC<ShareBarPostModalProps> = ({
         authorAvatar: author?.avatarUrl || '',
         content: post.content || '',
         imageUrl: post.imageUrl || post.images?.[0] || '',
+        images: post.images || [],
+        media: post.media || [],
         likesCount: post.likesCount || 0,
         commentsCount: post.commentsCount || 0,
         createdAt:
