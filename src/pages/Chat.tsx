@@ -217,11 +217,14 @@ interface ChatRoomItemProps {
 }
 
 const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
-  const { user } = useAuth();
+  const { user, isUserBlocked } = useAuth();
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [tripEndDate, setTripEndDate] = useState<string | undefined>(undefined);
   const isGroup = room.type === 'group';
   const otherId = room.participants.find(id => id !== user?.uid);
+  const hasBlockedParticipant = isGroup && room.participants.some(
+    participantId => participantId !== user?.uid && isUserBlocked(participantId)
+  );
 
   useEffect(() => {
     if (!isGroup && otherId) {
@@ -299,7 +302,9 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
             />
           )}
         </div>
-        <p className="text-xs text-apple-gray-400 truncate font-light leading-snug">{room.lastMessage || '尚無訊息'}</p>
+        <p className="text-xs text-apple-gray-400 truncate font-light leading-snug">
+          {hasBlockedParticipant ? '開啟群組查看可見訊息' : (room.lastMessage || '尚無訊息')}
+        </p>
       </div>
 
       {/* Right: Timestamp & Unread Count Badge */}
