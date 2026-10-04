@@ -343,6 +343,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
   };
 
   const visibleReplies = replies.filter(reply => !isUserBlocked(reply.authorId));
+  const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
 
   return (
     <div className="space-y-2">
@@ -821,7 +822,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
 
       const notified = new Set<string>();
       for (const handle of handles) {
-        const target = mentionUsers.find(profile => {
+        const target = visibleMentionUsers.find(profile => {
           const username = (profile.username || '').toLowerCase();
           const displayName = (profile.displayName || '').toLowerCase();
           return username === handle || displayName === handle;
@@ -1260,7 +1261,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
       <UserMentionPickerModal
         isOpen={showCommentMentionPicker}
         onClose={() => setShowCommentMentionPicker(false)}
-        users={mentionUsers}
+        users={visibleMentionUsers}
         title="標註 SyncTime 用戶"
         onSelectUser={target => {
           const handle = target.username || target.displayName;
