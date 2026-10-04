@@ -1571,7 +1571,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
                     />
                   </div>
 
-                  {searchMemberResult && (
+                  {searchMemberResult && !isUserBlocked(searchMemberResult.uid) && (
                     <div className="p-4 bg-apple-blue/5 rounded-2xl flex items-center justify-between">
                       <div 
                         className="flex items-center gap-3 cursor-pointer hover:text-apple-blue transition-colors group"
@@ -1629,7 +1629,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
           </motion.div>
         )}
 
-        {showEvaluateUserId && evaluateProfile && (
+        {showEvaluateUserId && evaluateProfile && !isUserBlocked(evaluateProfile.uid) && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
