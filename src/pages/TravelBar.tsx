@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Search, Plus, Send, ThumbsUp, Bookmark, EyeOff, ShieldAlert, Check, Flame, Sparkles, Compass, Tag, Filter, AtSign } from 'lucide-react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { Search, Plus, Send, ThumbsUp, Bookmark, EyeOff, ShieldAlert, Check, Flame, Sparkles, Compass, Tag, Filter, AtSign, ImagePlus, X, Play, LoaderCircle } from 'lucide-react';
+import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, getDocs, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, increment, where } from 'firebase/firestore';
 import { BarPost, UserProfile, GestureSettings, Trip } from '../types';
 import { BarPostCard } from '../components/BarPostCard';
@@ -12,6 +12,25 @@ import { ReportModal } from '../components/ReportModal';
 import { PopularTravelBarSection } from '../components/PopularTravelBarSection';
 import { rankRecommendedPosts, extractHashtags, ScoredBarPost } from '../lib/recommendationEngine';
 import { UserMentionPickerModal } from '../components/UserMentionPickerModal';
+import WarmTooltip, { WarmTooltipGroup } from '../components/WarmTooltip';
+import {
+  MAX_POST_MEDIA,
+  MAX_POST_VIDEO_SECONDS,
+  getVideoDuration,
+  moderatePostMedia,
+  PostMediaKind
+} from '../lib/postMedia';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+
+type DraftPostMedia = {
+  id: string;
+  file: File;
+  type: PostMediaKind;
+  previewUrl: string;
+  duration?: number;
+  status: 'pending' | 'safe' | 'blocked' | 'error';
+  reason?: string;
+};
 
 export const TravelBarView: React.FC<{ 
   onChatClick: (roomId: string) => void,
@@ -84,7 +103,130 @@ export const TravelBarView: React.FC<{
   const [selectedInterestTag, setSelectedInterestTag] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [draftMedia, setDraftMedia] = useState<DraftPostMedia[]>([]);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, isUserBlocked } = useAuth();
+
+  const hasPendingMedia = draftMedia.some(item => item.status === 'pending');
+  const safeDraftMedia = draftMedia.filter(item => item.status === 'safe');
+  const canPublish =
+    Boolean(user) &&
+    !isSubmitting &&
+    !hasPendingMedia &&
+    (newPostContent.trim().length > 0 || safeDraftMedia.length > 0);
+
+  const clearDraftMedia = () => {
+    setDraftMedia(previous => {
+      previous.forEach(item => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+  };
+
+  const handleCloseComposer = () => {
+    clearDraftMedia();
+    setNewPostContent('');
+    setShowMentionPicker(false);
+    setIsPosting(false);
+  };
+
+  const handleRemoveDraftMedia = (id: string) => {
+    setDraftMedia(previous => {
+      const target = previous.find(item => item.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return previous.filter(item => item.id !== id);
+    });
+  };
+
+  const moderateDraftItem = async (item: DraftPostMedia) => {
+    try {
+      const result = await moderatePostMedia(item.file, item.type);
+      setDraftMedia(previous =>
+        previous.map(current =>
+          current.id === item.id
+            ? {
+                ...current,
+                status: result.allowed ? 'safe' : 'blocked',
+                reason: result.reason
+              }
+            : current
+        )
+      );
+
+      if (!result.allowed) {
+        window.alert('您上傳的照片可能違反使用者安全政策！');
+      }
+    } catch (error) {
+      console.error('Media safety moderation failed:', error);
+      setDraftMedia(previous =>
+        previous.map(current =>
+          current.id === item.id
+            ? {
+                ...current,
+                status: 'error',
+                reason: '安全檢測暫時無法完成'
+              }
+            : current
+        )
+      );
+      window.alert('安全檢測暫時無法完成，這個媒體不會被上傳。請稍後再試。');
+    }
+  };
+
+  const handleMediaSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (selectedFiles.length === 0) return;
+
+    const remainingSlots = Math.max(0, MAX_POST_MEDIA - draftMedia.length);
+    if (remainingSlots === 0) {
+      window.alert('每則旅吧貼文最多只能上傳 10 個照片或影片。');
+      return;
+    }
+
+    if (selectedFiles.length > remainingSlots) {
+      window.alert(`每則旅吧貼文最多只能上傳 10 個照片或影片，本次只會加入前 ${remainingSlots} 個。`);
+    }
+
+    for (const file of selectedFiles.slice(0, remainingSlots)) {
+      const type: PostMediaKind | null = file.type.startsWith('image/')
+        ? 'image'
+        : file.type.startsWith('video/')
+          ? 'video'
+          : null;
+
+      if (!type) {
+        window.alert(`不支援「${file.name}」的檔案格式，請選擇照片或影片。`);
+        continue;
+      }
+
+      let duration: number | undefined;
+      if (type === 'video') {
+        try {
+          duration = await getVideoDuration(file);
+        } catch {
+          window.alert(`無法讀取影片「${file.name}」，請重新選擇。`);
+          continue;
+        }
+
+        if (duration > MAX_POST_VIDEO_SECONDS + 0.05) {
+          window.alert(`影片「${file.name}」超過 1 分鐘，請選擇 60 秒以內的影片。`);
+          continue;
+        }
+      }
+
+      const item: DraftPostMedia = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        type,
+        previewUrl: URL.createObjectURL(file),
+        duration,
+        status: 'pending'
+      };
+
+      setDraftMedia(previous => [...previous, item]);
+      void moderateDraftItem(item);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -203,43 +345,92 @@ export const TravelBarView: React.FC<{
   };
 
   const handleCreatePost = async () => {
-    if (isSubmitting) return;
-    if (!newPostContent.trim() || !user) return;
+    if (!canPublish || !user) return;
     setIsSubmitting(true);
-    const path = 'barPosts';
-    try {
-      const tags = extractHashtags(newPostContent);
 
-      // Extract all @mentions from newPostContent
+    const path = 'barPosts';
+    const uploadedRefs: ReturnType<typeof storageRef>[] = [];
+
+    try {
+      const content = newPostContent.trim();
+      const tags = extractHashtags(content);
+
       const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
-      const mentionMatches = Array.from(newPostContent.matchAll(mentionRegex), m => m[1].toLowerCase());
-      
+      const mentionMatches = Array.from(content.matchAll(mentionRegex), match =>
+        match[1].toLowerCase()
+      );
+
       const mentionedUserIds: string[] = [];
       const mentionedProfiles: UserProfile[] = [];
 
       mentionMatches.forEach(tag => {
-        const found = allUsers.find(u => 
-          (u.username && u.username.toLowerCase() === tag) || 
-          (u.displayName && u.displayName.toLowerCase() === tag)
+        const found = allUsers.find(candidate =>
+          (candidate.username && candidate.username.toLowerCase() === tag) ||
+          (candidate.displayName && candidate.displayName.toLowerCase() === tag)
         );
-        if (found && !isUserBlocked(found.uid) && !mentionedUserIds.includes(found.uid)) {
+
+        if (
+          found &&
+          !isUserBlocked(found.uid) &&
+          !mentionedUserIds.includes(found.uid)
+        ) {
           mentionedUserIds.push(found.uid);
           mentionedProfiles.push(found);
         }
       });
 
-      const postRef = await addDoc(collection(db, path), {
+      const postRef = doc(collection(db, path));
+
+      const uploadedMedia = await Promise.all(
+        safeDraftMedia.map(async (item, index) => {
+          const sanitizedName = item.file.name
+            .replace(/[^a-zA-Z0-9._-]+/g, '-')
+            .slice(-80);
+          const mediaRef = storageRef(
+            storage,
+            `bar-posts/${user.uid}/${postRef.id}/${String(index + 1).padStart(2, '0')}-${Date.now()}-${sanitizedName}`
+          );
+
+          uploadedRefs.push(mediaRef);
+          await uploadBytes(mediaRef, item.file, {
+            contentType: item.file.type,
+            customMetadata: {
+              ownerId: user.uid,
+              postId: postRef.id,
+              safetyStatus: 'approved'
+            }
+          });
+
+          const url = await getDownloadURL(mediaRef);
+          return {
+            type: item.type,
+            url,
+            ...(item.type === 'video' && item.duration
+              ? { duration: Math.round(item.duration * 10) / 10 }
+              : {})
+          };
+        })
+      );
+
+      const imageUrls = uploadedMedia
+        .filter(item => item.type === 'image')
+        .map(item => item.url);
+
+      await setDoc(postRef, {
         authorId: user.uid,
-        content: newPostContent,
+        content,
         tags: tags.length > 0 ? tags : [],
         mentionedUsers: mentionedUserIds,
+        media: uploadedMedia,
+        images: imageUrls,
+        imageUrl: imageUrls[0] || '',
+        moderationStatus: 'approved',
         likesCount: 0,
         commentsCount: 0,
         favoritesCount: 0,
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp()
       });
 
-      // Send post_mention notifications to tagged users
       for (const targetUser of mentionedProfiles) {
         if (targetUser.uid !== user.uid) {
           try {
@@ -248,20 +439,28 @@ export const TravelBarView: React.FC<{
               fromId: user.uid,
               toId: targetUser.uid,
               postId: postRef.id,
-              postSnippet: newPostContent.slice(0, 60),
+              postSnippet: content.slice(0, 60),
+              postImage: imageUrls[0] || '',
               status: 'pending',
               createdAt: serverTimestamp()
             });
-          } catch (notifErr) {
-            console.warn('Failed to send mention notification:', notifErr);
+          } catch (notificationError) {
+            console.warn('Failed to send mention notification:', notificationError);
           }
         }
       }
 
+      clearDraftMedia();
       setNewPostContent('');
       setIsPosting(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      await Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
+      try {
+        handleFirestoreError(error, OperationType.CREATE, path);
+      } catch {
+        // handleFirestoreError already logs the detailed error.
+      }
+      window.alert('貼文發佈失敗，請稍後再試。');
     } finally {
       setIsSubmitting(false);
     }
@@ -685,14 +884,14 @@ export const TravelBarView: React.FC<{
             className="fixed inset-0 z-[120] bg-white pt-[max(env(safe-area-inset-top,0px),1rem)] px-5 sm:px-6 flex flex-col h-[100dvh]"
           >
             <div className="flex items-center justify-between py-3 mb-4 border-b border-apple-gray-100/60">
-              <button onClick={() => setIsPosting(false)} className="text-apple-gray-400 font-bold text-sm px-2 py-1 active:scale-95 transition-transform">取消</button>
+              <button onClick={handleCloseComposer} className="text-apple-gray-400 font-bold text-sm px-2 py-1 active:scale-95 transition-transform">取消</button>
               <h2 className="font-bold text-base text-[#2B2B2B]">發佈見聞</h2>
               <button 
                 onClick={handleCreatePost}
-                disabled={!newPostContent.trim() || isSubmitting}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${newPostContent.trim() && !isSubmitting ? 'bg-[#035096] text-white active:scale-95' : 'bg-apple-gray-100 text-apple-gray-300'}`}
+                disabled={!canPublish}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${canPublish ? 'bg-[#035096] text-white active:scale-95' : 'bg-apple-gray-100 text-apple-gray-300'}`}
               >
-                {isSubmitting ? '發佈中...' : '發佈'}
+                {isSubmitting ? '發佈中...' : hasPendingMedia ? '檢測中...' : '發佈'}
               </button>
             </div>
             <textarea
@@ -702,6 +901,82 @@ export const TravelBarView: React.FC<{
               onChange={(e) => setNewPostContent(e.target.value)}
               className="flex-1 w-full bg-transparent text-base font-normal focus:outline-none resize-none leading-relaxed text-[#2B2B2B] placeholder:text-apple-gray-300"
             />
+
+            {draftMedia.length > 0 && (
+              <div className="shrink-0 pb-3">
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <span className="text-[11px] font-bold text-apple-gray-500">
+                    媒體 {draftMedia.length}/{MAX_POST_MEDIA}
+                  </span>
+                  <span className="text-[10px] text-apple-gray-400">
+                    影片最長 60 秒・上傳前自動安全檢測
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 max-h-[230px] overflow-y-auto no-scrollbar">
+                  {draftMedia.map(item => (
+                    <div
+                      key={item.id}
+                      className="relative aspect-square rounded-2xl overflow-hidden bg-apple-gray-100 border border-apple-gray-100"
+                    >
+                      {item.status === 'blocked' || item.status === 'error' ? (
+                        <div className="absolute inset-0 bg-apple-gray-100 flex flex-col items-center justify-center text-center px-2">
+                          <ShieldAlert size={22} className={item.status === 'blocked' ? 'text-red-500' : 'text-amber-500'} />
+                          <span className="text-[10px] font-bold text-apple-gray-600 mt-1">
+                            {item.status === 'blocked' ? '已依安全政策隱藏' : '安全檢測失敗'}
+                          </span>
+                        </div>
+                      ) : item.type === 'image' ? (
+                        <img
+                          src={item.previewUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <>
+                          <video
+                            src={item.previewUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+                            <Play size={22} className="text-white fill-white drop-shadow" />
+                          </div>
+                          {item.duration !== undefined && (
+                            <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-black/55 text-white text-[9px] font-bold">
+                              {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
+                            </span>
+                          )}
+                        </>
+                      )}
+
+                      {item.status === 'pending' && (
+                        <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex flex-col items-center justify-center">
+                          <LoaderCircle size={20} className="animate-spin text-[#035096]" />
+                          <span className="mt-1 text-[9px] font-bold text-[#035096]">安全檢測中</span>
+                        </div>
+                      )}
+
+                      {item.status === 'safe' && (
+                        <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDraftMedia(item.id)}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/55 text-white flex items-center justify-center active:scale-90 transition-transform"
+                        aria-label="移除媒體"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Real-time @Mention Autocomplete Bar */}
             {mentionSuggestions.length > 0 && (
@@ -723,6 +998,45 @@ export const TravelBarView: React.FC<{
 
             {/* Mention & Quick Tag Pills */}
             <div className="py-2.5 border-t border-apple-gray-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 mb-[max(env(safe-area-inset-bottom,0px)+1rem,1.5rem)]">
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={handleMediaSelection}
+              />
+
+              <WarmTooltipGroup delay={400} warmWindow={300} travel={320} lean={0}>
+                <WarmTooltip
+                  content="新增照片或影片"
+                  shortcut="最多 10 個"
+                  side="top"
+                  surfaceColor="#B6cada"
+                  inkColor="#045096"
+                  size="md"
+                  radius={8}
+                  gap={8}
+                  arrow
+                  popDuration={180}
+                  popScale={0.94}
+                  popBlur={4}
+                  showFuse={false}
+                >
+                  <button
+                    type="button"
+                    onClick={() => mediaInputRef.current?.click()}
+                    disabled={draftMedia.length >= MAX_POST_MEDIA}
+                    className="shrink-0 px-3 py-1.5 rounded-full bg-[#E6F5FF] text-[#035096] hover:bg-[#035096] hover:text-white text-xs font-bold border border-[#035096]/25 transition-all active:scale-95 flex items-center gap-1.5 shadow-2xs disabled:opacity-40 disabled:active:scale-100"
+                  >
+                    <ImagePlus size={14} strokeWidth={2.4} />
+                    <span>照片 / 影片</span>
+                  </button>
+                </WarmTooltip>
+              </WarmTooltipGroup>
+
+              <div className="h-4 w-px bg-apple-gray-200 shrink-0 mx-1" />
+
               {/* @ 標註朋友 Button (Instagram Style) */}
               <button
                 type="button"
