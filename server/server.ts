@@ -394,15 +394,73 @@ async function startServer() {
       ];
 
       let parsed: any = null;
-      let lastServiceError: unknown = null;
+      let lastServiceError: any = null;
 
-      // Use the Gemini REST endpoint here instead of SDK-specific generation config.
-      // The project currently pins an older @google/genai version for other features;
-      // calling REST keeps media moderation compatible with the current Gemini API.
+      const toUserFacingGeminiError = (status: number, message: string) => {
+        const normalized = message.toLowerCase();
+
+        if (
+          status === 401 ||
+          status === 403 ||
+          normalized.includes('api key not valid') ||
+          normalized.includes('permission_denied') ||
+          normalized.includes('permission denied')
+        ) {
+          return {
+            code: 'GEMINI_API_KEY_INVALID',
+            message: 'Gemini API 金鑰無效或沒有使用權限。'
+          };
+        }
+
+        if (
+          status === 429 ||
+          normalized.includes('quota') ||
+          normalized.includes('resource_exhausted') ||
+          normalized.includes('rate limit')
+        ) {
+          return {
+            code: 'GEMINI_QUOTA_EXCEEDED',
+            message: 'Gemini API 免費額度或呼叫頻率已達上限，請稍後再試。'
+          };
+        }
+
+        if (
+          status === 404 ||
+          normalized.includes('not found') ||
+          normalized.includes('model') && normalized.includes('available')
+        ) {
+          return {
+            code: 'GEMINI_MODEL_UNAVAILABLE',
+            message: '目前的 Gemini 圖像檢測模型無法使用。'
+          };
+        }
+
+        return {
+          code: 'GEMINI_REQUEST_FAILED',
+          message: '安全檢測服務暫時無法完成。'
+        };
+      };
+
+      // Interactions API is Google's recommended interface for new multimodal apps.
+      // It accepts inline images and structured JSON output directly.
       for (const model of MEDIA_CLASSIFIER_MODELS) {
         try {
+          const interactionInput = [
+            {
+              type: 'text',
+              text:
+                MEDIA_SAFETY_PROMPT +
+                `\nMedia type: ${mediaType}. Review all ${normalizedFrames.length} frame(s).`
+            },
+            ...normalizedFrames.map((data: string) => ({
+              type: 'image',
+              data,
+              mime_type: 'image/jpeg'
+            }))
+          ];
+
           const apiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+            'https://generativelanguage.googleapis.com/v1beta/interactions',
             {
               method: 'POST',
               headers: {
@@ -410,12 +468,13 @@ async function startServer() {
                 'x-goog-api-key': apiKey
               },
               body: JSON.stringify({
-                contents: [
-                  {
-                    role: 'user',
-                    parts
-                  }
-                ]
+                model,
+                input: interactionInput,
+                response_format: {
+                  type: 'text',
+                  mime_type: 'application/json',
+                  schema: MEDIA_MODERATION_SCHEMA
+                }
               })
             }
           );
@@ -427,45 +486,50 @@ async function startServer() {
               responseData?.error?.message ||
               responseData?.error?.status ||
               `Gemini API HTTP ${apiResponse.status}`;
-            throw new Error(apiMessage);
+
+            const mapped = toUserFacingGeminiError(apiResponse.status, String(apiMessage));
+            const error: any = new Error(String(apiMessage));
+            error.code = mapped.code;
+            error.userMessage = mapped.message;
+            error.httpStatus = apiResponse.status;
+            throw error;
           }
 
-          const promptBlockReason = responseData?.promptFeedback?.blockReason;
-          const candidate = responseData?.candidates?.[0];
-          const finishReason = candidate?.finishReason;
-
-          if (
-            ['SAFETY', 'PROHIBITED_CONTENT', 'IMAGE_SAFETY'].includes(promptBlockReason) ||
-            ['SAFETY', 'PROHIBITED_CONTENT', 'IMAGE_SAFETY'].includes(finishReason)
-          ) {
-            return res.json({
-              allowed: false,
-              decision: 'block',
-              confidence: 1,
-              categories: ['core_safety'],
-              reason: '內容被核心安全系統攔截'
-            });
+          if (responseData?.status === 'failed') {
+            const apiMessage =
+              responseData?.error?.message ||
+              responseData?.error?.status ||
+              'Gemini interaction failed';
+            const mapped = toUserFacingGeminiError(500, String(apiMessage));
+            const error: any = new Error(String(apiMessage));
+            error.code = mapped.code;
+            error.userMessage = mapped.message;
+            throw error;
           }
 
-          const responseText = Array.isArray(candidate?.content?.parts)
-            ? candidate.content.parts
-                .map((part: any) => typeof part?.text === 'string' ? part.text : '')
+          const outputText = Array.isArray(responseData?.steps)
+            ? responseData.steps
+                .filter((step: any) => step?.type === 'model_output')
+                .flatMap((step: any) => Array.isArray(step?.content) ? step.content : [])
+                .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
+                .map((part: any) => part.text)
                 .join('')
                 .trim()
             : '';
 
-          if (!responseText) {
-            throw new Error(
-              `EMPTY_MODERATION_RESPONSE${finishReason ? `:${finishReason}` : ''}`
-            );
+          if (!outputText) {
+            const error: any = new Error('EMPTY_MODERATION_RESPONSE');
+            error.code = 'GEMINI_EMPTY_RESPONSE';
+            error.userMessage = 'Gemini 沒有回傳安全檢測結果。';
+            throw error;
           }
 
-          parsed = parseModerationJson(responseText);
+          parsed = parseModerationJson(outputText);
           break;
         } catch (error: any) {
           lastServiceError = error;
           console.warn(
-            `Media moderation REST call for ${model} failed; trying fallback:`,
+            `Media moderation Interactions API call for ${model} failed; trying fallback:`,
             String(error?.message || error || '')
           );
         }
@@ -473,14 +537,25 @@ async function startServer() {
 
       if (!parsed) {
         console.error('All media moderation models failed:', lastServiceError);
-        return res.status(503).json({
+
+        return res.status(
+          typeof lastServiceError?.httpStatus === 'number'
+            ? lastServiceError.httpStatus
+            : 503
+        ).json({
           error: 'media moderation unavailable',
-          code: 'GEMINI_REQUEST_FAILED',
-          retryable: true,
+          code: lastServiceError?.code || 'GEMINI_REQUEST_FAILED',
+          userMessage:
+            lastServiceError?.userMessage ||
+            '安全檢測服務暫時無法完成。',
+          retryable:
+            !['GEMINI_API_KEY_INVALID', 'GEMINI_API_KEY_MISSING'].includes(
+              lastServiceError?.code
+            ),
           details:
             process.env.NODE_ENV === 'production'
               ? undefined
-              : String((lastServiceError as any)?.message || lastServiceError || '')
+              : String(lastServiceError?.message || lastServiceError || '')
         });
       }
 
