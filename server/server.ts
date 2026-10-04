@@ -395,59 +395,78 @@ async function startServer() {
       let parsed: any = null;
       let lastServiceError: unknown = null;
 
+      // Use the Gemini REST endpoint here instead of SDK-specific generation config.
+      // The project currently pins an older @google/genai version for other features;
+      // calling REST keeps media moderation compatible with the current Gemini API.
       for (const model of MEDIA_CLASSIFIER_MODELS) {
         try {
-          const response = await ai.models.generateContent({
-            model,
-            contents: [{ role: 'user', parts }],
-            config: {
-              responseMimeType: 'application/json',
-              responseJsonSchema: MEDIA_MODERATION_SCHEMA,
-              // The classifier itself must be able to inspect borderline inputs.
-              // Core protections (for example child safety) still cannot be disabled by the API.
-              safetySettings: [
-                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
-                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
-                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
-                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' }
-              ]
+          const apiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey
+              },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: 'user',
+                    parts
+                  }
+                ]
+              })
             }
-          });
+          );
 
-          const responseText = response.text || '';
+          const responseData: any = await apiResponse.json().catch(() => ({}));
+
+          if (!apiResponse.ok) {
+            const apiMessage =
+              responseData?.error?.message ||
+              responseData?.error?.status ||
+              `Gemini API HTTP ${apiResponse.status}`;
+            throw new Error(apiMessage);
+          }
+
+          const promptBlockReason = responseData?.promptFeedback?.blockReason;
+          const candidate = responseData?.candidates?.[0];
+          const finishReason = candidate?.finishReason;
+
+          if (
+            ['SAFETY', 'PROHIBITED_CONTENT', 'IMAGE_SAFETY'].includes(promptBlockReason) ||
+            ['SAFETY', 'PROHIBITED_CONTENT', 'IMAGE_SAFETY'].includes(finishReason)
+          ) {
+            return res.json({
+              allowed: false,
+              decision: 'block',
+              confidence: 1,
+              categories: ['core_safety'],
+              reason: '內容被核心安全系統攔截'
+            });
+          }
+
+          const responseText = Array.isArray(candidate?.content?.parts)
+            ? candidate.content.parts
+                .map((part: any) => typeof part?.text === 'string' ? part.text : '')
+                .join('')
+                .trim()
+            : '';
+
           if (!responseText) {
-            const finishReason = response.candidates?.[0]?.finishReason;
-            if (finishReason === 'SAFETY') {
-              return res.json({
-                allowed: false,
-                decision: 'block',
-                confidence: 1,
-                categories: ['child_sexual_exploitation'],
-                reason: '內容被核心安全系統攔截'
-              });
-            }
-            throw new Error('EMPTY_MODERATION_RESPONSE');
+            throw new Error(
+              `EMPTY_MODERATION_RESPONSE${finishReason ? `:${finishReason}` : ''}`
+            );
           }
 
           parsed = parseModerationJson(responseText);
           break;
         } catch (error: any) {
           lastServiceError = error;
-          const message = String(error?.message || error || '');
-
-          // A core model safety refusal is treated as an actual block.
-          // Other API/network/schema errors are NOT violations and must not be mislabeled as one.
-          if (/finish.?reason.?[:= ]*safety|child safety|csam/i.test(message)) {
-            return res.json({
-              allowed: false,
-              decision: 'block',
-              confidence: 1,
-              categories: ['child_sexual_exploitation'],
-              reason: '內容被核心安全系統攔截'
-            });
-          }
-
-          console.warn(`Media moderation model ${model} failed; trying fallback:`, message);
+          console.warn(
+            `Media moderation REST call for ${model} failed; trying fallback:`,
+            String(error?.message || error || '')
+          );
         }
       }
 
@@ -481,7 +500,8 @@ async function startServer() {
                 'drugs',
                 'self_harm',
                 'child_sexual_exploitation',
-                'hate_extremist_violence'
+                'hate_extremist_violence',
+                'core_safety'
               ].includes(value)
             )
             .slice(0, 8)
