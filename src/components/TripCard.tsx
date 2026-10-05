@@ -62,8 +62,8 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
     }
   };
 
-  const isDeletedAuthor = authorLoaded && !author;
-  const isAuthor = user?.uid === trip.authorId && !isDeletedAuthor;
+  const isDeletedAuthor = authorLoaded === true && (!author || author.isDeleted === true);
+  const isAuthor = user?.uid === trip.authorId && !isDeletedAuthor && authorLoaded;
 
   return (
     <div 
@@ -79,7 +79,11 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
           }}
         >
           <div className="w-10 h-10 rounded-full bg-apple-gray-50 border border-apple-gray-100 overflow-hidden shadow-apple-sm group-hover:opacity-80 transition-opacity">
-            {author?.avatarUrl ? (
+            {!authorLoaded ? (
+              <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold animate-pulse text-[10px]">
+                ...
+              </div>
+            ) : author?.avatarUrl ? (
               <img src={author.avatarUrl} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
@@ -89,11 +93,21 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-xs tracking-tight group-hover:underline inline-flex items-center gap-1">
-              <span>{isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '載入中...')}</span>
-              {!isDeletedAuthor && <OfficialBadge profile={author} size={12} />}
+              <span>
+                {!authorLoaded
+                  ? '載入中...'
+                  : isDeletedAuthor
+                  ? '已註銷帳號'
+                  : (author?.displayName || '用戶')}
+              </span>
+              {authorLoaded && !isDeletedAuthor && <OfficialBadge profile={author} size={12} />}
             </span>
             <span className="text-[10px] text-apple-gray-300 font-medium">
-              {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+              {!authorLoaded
+                ? '載入中...'
+                : isDeletedAuthor
+                ? '帳號已刪除'
+                : `@${author?.username || 'unknown'}`}
             </span>
           </div>
         </div>

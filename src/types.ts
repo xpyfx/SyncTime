@@ -230,7 +230,7 @@ export interface BarPost {
   imageUrl?: string;
   images?: string[];
   media?: BarPostMedia[];
-  moderationStatus?: 'approved' | 'blocked' | 'pending' | 'disabled';
+  moderationStatus?: 'approved' | 'blocked' | 'pending';
   originalLanguage?: string;
   likesCount?: number;
   commentsCount?: number;

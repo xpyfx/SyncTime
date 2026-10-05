@@ -21,8 +21,6 @@ import {
   PostMediaKind
 } from '../lib/postMedia';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { detectTextLanguage } from '../lib/translation';
-import { uploadMediaToPostgres } from '../lib/mediaUploader';
 
 const MEDIA_UPLOAD_DIAGNOSTIC_MODE = true;
 
@@ -77,12 +75,14 @@ export const TravelBarView: React.FC<{
         if (snap.exists()) {
           const p = { id: snap.id, ...snap.data() } as BarPost;
           setExtraTargetPost(p);
-          if (!authors[p.authorId]) {
+          if (authors[p.authorId] === undefined) {
             getDoc(doc(db, 'users', p.authorId)).then(uSnap => {
               if (uSnap.exists()) {
                 setAuthors(prev => ({ ...prev, [p.authorId]: uSnap.data() as UserProfile }));
+              } else {
+                setAuthors(prev => ({ ...prev, [p.authorId]: null }));
               }
-            });
+            }).catch(console.warn);
           }
         }
       }).catch(console.warn);
@@ -94,7 +94,7 @@ export const TravelBarView: React.FC<{
       }
     }, 400);
   }, [targetPostId, posts]);
-  const [authors, setAuthors] = useState<Record<string, UserProfile>>({});
+  const [authors, setAuthors] = useState<Record<string, UserProfile | null>>({});
   const [search, setSearch] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
@@ -216,7 +216,7 @@ export const TravelBarView: React.FC<{
   };
 
   const handleMediaSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
+    const selectedFiles: File[] = Array.from(event.target.files || []);
     event.target.value = '';
     if (selectedFiles.length === 0) return;
 
@@ -343,13 +343,18 @@ export const TravelBarView: React.FC<{
       if (authorIds.length > 0) {
         try {
           const results = await Promise.all(authorIds.map(async (id) => {
-            const uDoc = await getDoc(doc(db, 'users', id));
-            if (uDoc.exists()) {
-              return { id, profile: uDoc.data() as UserProfile };
+            try {
+              const uDoc = await getDoc(doc(db, 'users', id));
+              if (uDoc.exists()) {
+                return { id, profile: uDoc.data() as UserProfile };
+              }
+              return { id, profile: null };
+            } catch (err) {
+              console.warn('Error fetching author for id:', id, err);
+              return null;
             }
-            return null;
           }));
-          const fetched: Record<string, UserProfile> = {};
+          const fetched: Record<string, UserProfile | null> = {};
           results.forEach(r => {
             if (r) fetched[r.id] = r.profile;
           });
@@ -398,10 +403,44 @@ export const TravelBarView: React.FC<{
     const uploadedRefs: ReturnType<typeof storageRef>[] = [];
 
     try {
+      if (MEDIA_UPLOAD_DIAGNOSTIC_MODE) {
+        const testId = `upload-test-${Date.now()}`;
+
+        await Promise.all(
+          draftMedia.map(async (item, index) => {
+            const sanitizedName = item.file.name
+              .replace(/[^a-zA-Z0-9._-]+/g, '-')
+              .slice(-80);
+
+            const mediaRef = storageRef(
+              storage,
+              `bar-posts/${user.uid}/${testId}/${String(index + 1).padStart(2, '0')}-${sanitizedName}`
+            );
+
+            uploadedRefs.push(mediaRef);
+
+            await uploadBytes(mediaRef, item.file, {
+              contentType: item.file.type,
+              customMetadata: {
+                ownerId: user.uid,
+                uploadPurpose: 'media-upload-diagnostic'
+              }
+            });
+
+            await getDownloadURL(mediaRef);
+          })
+        );
+
+        window.alert(
+          `圖片／影片上傳測試成功，共上傳 ${draftMedia.length} 個媒體。這次不會建立公開旅吧貼文。`
+        );
+
+        clearDraftMedia();
+        setNewPostContent('');
+        setIsPosting(false);
+        return;
+      }
       const content = newPostContent.trim();
-      const originalLanguage = content
-        ? await detectTextLanguage(content)
-        : 'und';
       const tags = extractHashtags(content);
 
       const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
@@ -431,9 +470,26 @@ export const TravelBarView: React.FC<{
       const postRef = doc(collection(db, path));
 
       const uploadedMedia = await Promise.all(
-        safeDraftMedia.map(async (item) => {
-          // ✨ 直接傳到你的 Windows 筆電 PostgreSQL / 影片串流伺服器！
-          const url = await uploadMediaToPostgres(item.file);
+        safeDraftMedia.map(async (item, index) => {
+          const sanitizedName = item.file.name
+            .replace(/[^a-zA-Z0-9._-]+/g, '-')
+            .slice(-80);
+          const mediaRef = storageRef(
+            storage,
+            `bar-posts/${user.uid}/${postRef.id}/${String(index + 1).padStart(2, '0')}-${Date.now()}-${sanitizedName}`
+          );
+
+          uploadedRefs.push(mediaRef);
+          await uploadBytes(mediaRef, item.file, {
+            contentType: item.file.type,
+            customMetadata: {
+              ownerId: user.uid,
+              postId: postRef.id,
+              safetyStatus: 'approved'
+            }
+          });
+
+          const url = await getDownloadURL(mediaRef);
           return {
             type: item.type,
             url,
@@ -451,13 +507,12 @@ export const TravelBarView: React.FC<{
       await setDoc(postRef, {
         authorId: user.uid,
         content,
-        originalLanguage,
         tags: tags.length > 0 ? tags : [],
         mentionedUsers: mentionedUserIds,
         media: uploadedMedia,
         images: imageUrls,
         imageUrl: imageUrls[0] || '',
-        moderationStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved',
+        moderationStatus: 'approved',
         likesCount: 0,
         commentsCount: 0,
         favoritesCount: 0,
@@ -486,27 +541,14 @@ export const TravelBarView: React.FC<{
       clearDraftMedia();
       setNewPostContent('');
       setIsPosting(false);
-    } catch (error: any) {
+    } catch (error) {
       await Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
-
-      console.error('Travel Bar media publish failed:', error);
-
-      const code = String(error?.code || '');
-      let message = '貼文發佈失敗，請稍後再試。';
-
-      if (code === 'storage/unauthorized') {
-        message = '照片／影片上傳權限尚未開啟，請確認 Firebase Storage Rules 已發布。';
-      } else if (code === 'storage/bucket-not-found') {
-        message = '找不到 Firebase Storage 儲存空間，請確認 Storage 已在 Firebase 專案中啟用。';
-      } else if (code === 'storage/quota-exceeded') {
-        message = 'Firebase Storage 儲存額度已達上限。';
-      } else if (code === 'storage/retry-limit-exceeded') {
-        message = '照片／影片上傳逾時，請確認網路後再試一次。';
-      } else if (code.startsWith('storage/')) {
-        message = `照片／影片上傳失敗（${code}）。`;
+      try {
+        handleFirestoreError(error, OperationType.CREATE, path);
+      } catch {
+        // handleFirestoreError already logs the detailed error.
       }
-
-      window.alert(message);
+      window.alert('貼文發佈失敗，請稍後再試。');
     } finally {
       setIsSubmitting(false);
     }
@@ -955,7 +997,7 @@ export const TravelBarView: React.FC<{
                     媒體 {draftMedia.length}/{MAX_POST_MEDIA}
                   </span>
                   <span className="text-[10px] text-apple-gray-400">
-                    影片最長 60 秒・最多 10 個媒體
+                    上傳測試模式・影片最長 60 秒・最多 10 個媒體
                   </span>
                 </div>
 
@@ -1081,6 +1123,8 @@ export const TravelBarView: React.FC<{
                         content="照片 / 影片"
                         shortcut={`${draftMedia.length}/10`}
                         side="top"
+                        delay={400}
+                        warmWindow={300}
                         surfaceColor="#B6cada"
                         inkColor="#045096"
                         size="md"
@@ -1107,6 +1151,8 @@ export const TravelBarView: React.FC<{
                         content="標註朋友"
                         shortcut="@"
                         side="top"
+                        delay={400}
+                        warmWindow={300}
                         surfaceColor="#B6cada"
                         inkColor="#045096"
                         size="md"

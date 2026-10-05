@@ -346,7 +346,7 @@ service cloud.firestore {
           )
           && (
             data.get('media', []).size() == 0 ||
-            data.get('moderationStatus', '') in ['approved', 'disabled']
+            data.get('moderationStatus', '') == 'approved'
           );
       }
     }

@@ -49,7 +49,7 @@ import { detectTextLanguage } from '../lib/translation';
 
 interface BarPostCardProps {
   post: BarPost;
-  author?: UserProfile;
+  author?: UserProfile | null;
   onChatClick?: (roomId: string) => void;
   onAvatarClick?: (uid: string) => void;
   onReport?: (post: BarPost) => void;
@@ -963,8 +963,9 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     }
   };
 
-  const isDeletedAuthor = !author || author.isDeleted;
-  const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
+  const isLoadingAuthor = author === undefined;
+  const isDeletedAuthor = author === null || author?.isDeleted === true;
+  const isAuthor = user?.uid === post.authorId && !isDeletedAuthor && !isLoadingAuthor;
   const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
   const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
 
@@ -990,7 +991,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             className="w-12 h-12 rounded-full bg-apple-gray-50 border border-apple-gray-100 overflow-hidden shadow-apple-sm cursor-pointer hover:opacity-80 active:scale-95 transition-all"
             onClick={() => onAvatarClick?.(post.authorId)}
           >
-            {author?.avatarUrl ? (
+            {isLoadingAuthor ? (
+              <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold animate-pulse text-[11px]">
+                ...
+              </div>
+            ) : author?.avatarUrl ? (
               <img src={author.avatarUrl} alt={author.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
@@ -1007,12 +1012,20 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group min-w-0" onClick={() => onAvatarClick?.(post.authorId)}>
                <span className="font-bold text-sm tracking-tight group-hover:underline truncate inline-flex items-center gap-1">
                  <span className="truncate">
-                   {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
+                   {isLoadingAuthor
+                     ? '載入中...'
+                     : isDeletedAuthor
+                     ? '已註銷帳號'
+                     : (author?.displayName || '用戶')}
                  </span>
-                 {!isDeletedAuthor && <OfficialBadge profile={author} size={13} />}
+                 {!isLoadingAuthor && !isDeletedAuthor && <OfficialBadge profile={author} size={13} />}
                </span>
                <span className="text-[10px] text-apple-gray-300 font-medium truncate">
-                 {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+                 {isLoadingAuthor
+                   ? '載入中...'
+                   : isDeletedAuthor
+                   ? '帳號已刪除'
+                   : `@${author?.username || 'unknown'}`}
                </span>
             </div>
             

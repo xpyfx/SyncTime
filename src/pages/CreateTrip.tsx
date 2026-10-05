@@ -5,7 +5,6 @@ import {
   PlaneTakeoff, Navigation 
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { detectTextLanguage } from '../lib/translation';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -362,22 +361,8 @@ export const CreateTripView: React.FC<{ onCancel: () => void, editingTrip?: Trip
     setIsSubmitting(true);
     const path = editingTrip ? `trips/${editingTrip.id}` : 'trips';
     try {
-      const originalLanguage = await detectTextLanguage(
-        [
-          notes,
-          arrivalMethod,
-          transportInfo,
-          ...accommodations.flatMap(item => [
-            item.note || '',
-            item.hotelName || '',
-            item.address || ''
-          ])
-        ].filter(Boolean).join('\n')
-      );
-
       const tripData = {
         authorId: user.uid,
-        originalLanguage,
         country: trimmedCountry,
         cities: validCities,
         startDate,
