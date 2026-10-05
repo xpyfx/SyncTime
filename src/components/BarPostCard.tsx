@@ -44,6 +44,7 @@ import { ShareBarPostModal } from './ShareBarPostModal';
 import { OfficialBadge } from './OfficialBadge';
 import { UserMentionPickerModal } from './UserMentionPickerModal';
 import { PulseLikeButton } from './PulseLikeButton';
+import { TranslatedUserText } from './TranslatedUserText';
 
 interface BarPostCardProps {
   post: BarPost;
@@ -1143,11 +1144,16 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             <div className="space-y-1.5">
               {/* Formatted Post Content with In-App Browser Link Triggers and @Mentions */}
               <div className="text-[15px] leading-relaxed font-normal text-apple-gray-600">
-                <FormattedPostText
-                  content={post.content}
-                  className="text-[15px] leading-relaxed font-normal text-apple-gray-700"
-                  onLinkClick={(url) => setBrowserUrl(url)}
-                  onMentionClick={handleMentionClick}
+                <TranslatedUserText
+                  text={post.content}
+                  render={(displayText) => (
+                    <FormattedPostText
+                      content={displayText}
+                      className="text-[15px] leading-relaxed font-normal text-apple-gray-700"
+                      onLinkClick={(url) => setBrowserUrl(url)}
+                      onMentionClick={handleMentionClick}
+                    />
+                  )}
                 />
               </div>
 
