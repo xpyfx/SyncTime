@@ -642,6 +642,92 @@ async function startServer() {
     }
   });
 
+  // Viewer-language translation for user-generated content.
+  // The original Firestore text is never modified; translation is generated only for display.
+  app.post('/api/translate/text', async (req, res) => {
+    try {
+      const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+      const targetLanguage =
+        req.body?.targetLanguage === 'English'
+          ? 'English'
+          : 'Traditional Chinese';
+
+      if (!text) {
+        return res.status(400).json({ error: 'text is required' });
+      }
+
+      if (text.length > 12000) {
+        return res.status(413).json({ error: 'text is too long' });
+      }
+
+      const ai = getAIClient();
+      const prompt = `You are a translation engine for a travel social app.
+
+Detect the source language and translate the user-generated text into ${targetLanguage}.
+
+Rules:
+- Preserve meaning, tone, paragraph breaks, emojis, hashtags, @mentions, place names, URLs, dates, numbers, and currencies.
+- Do not add explanations, warnings, commentary, markdown fences, or new facts.
+- If the source text is already in the target language, keep it unchanged.
+- Traditional Chinese output must use Traditional Chinese, never Simplified Chinese.
+- Return ONLY valid JSON in this exact shape:
+{"translation":"...","sourceLanguage":"...","translated":true}
+
+Set "translated" to false only when the text is already in the target language.
+
+Text:
+${text}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          temperature: 0.1,
+          topP: 0.9
+        }
+      });
+
+      const raw = (response.text || '').trim();
+      const cleaned = raw
+        .replace(/^\`\`\`json\s*/i, '')
+        .replace(/^\`\`\`\s*/i, '')
+        .replace(/\s*\`\`\`$/i, '')
+        .trim();
+
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start === -1 || end <= start) {
+        throw new Error('INVALID_TRANSLATION_RESPONSE');
+      }
+
+      const parsed = JSON.parse(cleaned.slice(start, end + 1));
+      const translation =
+        typeof parsed?.translation === 'string' && parsed.translation.trim()
+          ? parsed.translation
+          : text;
+      const sourceLanguage =
+        typeof parsed?.sourceLanguage === 'string'
+          ? parsed.sourceLanguage
+          : '';
+      const translated = Boolean(parsed?.translated) && translation !== text;
+
+      return res.json({
+        translation,
+        sourceLanguage,
+        translated
+      });
+    } catch (error: any) {
+      console.error('Error in /api/translate/text:', error);
+      return res.status(503).json({
+        error: 'translation unavailable',
+        details:
+          process.env.NODE_ENV === 'production'
+            ? undefined
+            : String(error?.message || error || '')
+      });
+    }
+  });
+
   // 3. Gemini Multi-Turn AI Assistant Endpoint for SyncTime
   app.post('/api/chat/assistant', async (req, res) => {
     try {
