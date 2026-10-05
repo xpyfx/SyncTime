@@ -6,6 +6,7 @@ import { BarPost, UserProfile, GestureSettings, Trip } from '../types';
 import { BarPostCard } from '../components/BarPostCard';
 import { GlassSearchInput } from '../components/GlassSearchInput';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { SwipeableWrapper } from '../components/SwipeableWrapper';
 import { ReportModal } from '../components/ReportModal';
@@ -162,6 +163,7 @@ export const TravelBarView: React.FC<{
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const backgroundPublishJobsRef = useRef<Record<string, { tasks: UploadTask[]; cancelled: boolean }>>({});
   const { user, profile, isUserBlocked } = useAuth();
+  const { language, t } = useLanguage();
 
   const hasPendingMedia = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'pending');
   const hasMediaError = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'error');
@@ -942,7 +944,7 @@ export const TravelBarView: React.FC<{
       {/* Header */}
       <div className="sticky top-0 bg-apple-gray-50/80 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 border-b border-apple-gray-100/50">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">旅吧</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('bar.title')}</h1>
           <button 
             onClick={() => setIsPosting(true)}
             className="w-11 h-11 rounded-full bg-white border border-apple-gray-100 flex items-center justify-center text-apple-gray-600 active:scale-90 transition-transform shadow-apple-sm cursor-pointer"
@@ -981,7 +983,7 @@ export const TravelBarView: React.FC<{
       {/* Search */}
       <div className="p-5">
         <GlassSearchInput
-          placeholder="搜尋旅吧見聞"
+          placeholder={t('bar.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onClear={() => setSearch('')}
@@ -1075,11 +1077,11 @@ export const TravelBarView: React.FC<{
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#035096]">
-                    <span>客製化行程推薦模式</span>
+                    <span>{language === 'en' ? 'Personalized trip recommendation mode' : '客製化行程推薦模式'}</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100/80 text-[#035096] font-bold">新用戶探索</span>
                   </div>
                   <p className="text-[11px] text-apple-gray-600 mt-1 leading-relaxed">
-                    參加或建立你的第一個旅遊行程後，系統將深度分析你的目的地與旅行風格，為你優先推送量身打造的旅吧見聞！目前優先為你推薦高品質與最新分享。
+                    {language === 'en' ? 'After you join or create your first trip, SyncTime will use your destinations and travel style to prioritize relevant Travel Bar posts. For now, we are showing high-quality and recent posts.' : '參加或建立你的第一個旅遊行程後，系統將深度分析你的目的地與旅行風格，為你優先推送量身打造的旅吧見聞！目前優先為你推薦高品質與最新分享。'}
                   </p>
                 </div>
               </div>
@@ -1088,7 +1090,7 @@ export const TravelBarView: React.FC<{
             <div className="flex items-center justify-between px-1 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-700">
                 <Sparkles size={13} className="text-[#035096]" />
-                <span>{selectedInterestTag ? `命中標籤「${selectedInterestTag}」的貼文` : '行程標籤專屬推薦列表'}</span>
+                <span>{selectedInterestTag ? `命中標籤「${selectedInterestTag}」的貼文` : t('bar.tripTagRecommendations')}</span>
               </div>
               <span className="text-[11px] text-apple-gray-400 font-medium">共 {displayedPosts.length} 則</span>
             </div>
@@ -1102,7 +1104,7 @@ export const TravelBarView: React.FC<{
               <span className="w-6 h-6 rounded-full bg-[#035096] text-white flex items-center justify-center shrink-0 shadow-2xs">
                 <Send size={12} className="-rotate-45 translate-x-0.5" />
               </span>
-              <span className="truncate">正在查看專屬分享旅文（已置頂推薦）</span>
+              <span className="truncate">{language === 'en' ? 'Viewing a shared Travel Bar post (pinned)' : '正在查看專屬分享旅文（已置頂推薦）'}</span>
             </div>
             <button
               type="button"
@@ -1142,9 +1144,9 @@ export const TravelBarView: React.FC<{
                   <div className="bg-[#035096] text-white text-[11px] font-bold px-4 py-1.5 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Send size={12} className="-rotate-45" />
-                      <span>專屬分享旅文 • 置頂推薦展示</span>
+                      <span>{language === 'en' ? 'Shared Travel Bar post · Pinned recommendation' : '專屬分享旅文 • 置頂推薦展示'}</span>
                     </div>
-                    <span className="text-[10px] text-[#B6cada] font-medium">可向下滑動瀏覽更多旅吧內容</span>
+                    <span className="text-[10px] text-[#B6cada] font-medium">{language === 'en' ? 'Scroll down to explore more Travel Bar posts' : '可向下滑動瀏覽更多旅吧內容'}</span>
                   </div>
                 )}
                 <SwipeableWrapper
@@ -1176,9 +1178,9 @@ export const TravelBarView: React.FC<{
 
         {displayedPosts.length === 0 && (
           <div className="py-16 text-center text-apple-gray-400 space-y-2">
-            <p className="text-sm font-bold text-apple-gray-500">暫無相關見聞貼文</p>
+            <p className="text-sm font-bold text-apple-gray-500">{language === 'en' ? 'No matching posts yet' : '暫無相關見聞貼文'}</p>
             <p className="text-xs text-apple-gray-400">
-              {selectedInterestTag ? `目前還沒有標籤「${selectedInterestTag}」的見聞，切換至其他標籤探索吧！` : '快來發布第一則見聞分享你的旅行心得吧！'}
+              {selectedInterestTag ? `目前還沒有標籤「${selectedInterestTag}」的見聞，切換至其他標籤探索吧！` : (language === 'en' ? 'Be the first to share a travel post!' : '快來發布第一則見聞分享你的旅行心得吧！')}
             </p>
           </div>
         )}
@@ -1194,19 +1196,19 @@ export const TravelBarView: React.FC<{
             className="fixed inset-0 z-[120] bg-white pt-[max(env(safe-area-inset-top,0px),1rem)] px-5 sm:px-6 flex flex-col h-[100dvh]"
           >
             <div className="flex items-center justify-between py-3 mb-4 border-b border-apple-gray-100/60">
-              <button onClick={handleCloseComposer} className="text-apple-gray-400 font-bold text-sm px-2 py-1 active:scale-95 transition-transform">取消</button>
-              <h2 className="font-bold text-base text-[#2B2B2B]">發佈見聞</h2>
+              <button onClick={handleCloseComposer} className="text-apple-gray-400 font-bold text-sm px-2 py-1 active:scale-95 transition-transform">{t('bar.cancel')}</button>
+              <h2 className="font-bold text-base text-[#2B2B2B]">{t('bar.publishTitle')}</h2>
               <button 
                 onClick={handleCreatePost}
                 disabled={!canPublish}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${canPublish ? 'bg-[#035096] text-white active:scale-95' : 'bg-apple-gray-100 text-apple-gray-300'}`}
               >
-                {isSubmitting ? '發佈中...' : hasPendingMedia ? '檢測中...' : hasMediaError ? '請重新檢測' : '發佈'}
+                {isSubmitting ? (language === 'en' ? 'Posting…' : '發佈中...') : hasPendingMedia ? (language === 'en' ? 'Checking…' : '檢測中...') : hasMediaError ? (language === 'en' ? 'Check again' : '請重新檢測') : t('bar.publish')}
               </button>
             </div>
             <textarea
               autoFocus
-              placeholder="分享你在旅行中遇到的趣事、美食或提醒大家避雷的事..."
+              placeholder={t('bar.placeholder')}
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
               className="flex-1 w-full bg-transparent text-base font-normal focus:outline-none resize-none leading-relaxed text-[#2B2B2B] placeholder:text-apple-gray-300"
@@ -1216,10 +1218,10 @@ export const TravelBarView: React.FC<{
               <div className="shrink-0 pb-3">
                 <div className="flex items-center justify-between mb-2 px-0.5">
                   <span className="text-[11px] font-bold text-apple-gray-500">
-                    媒體 {draftMedia.length}/{MAX_POST_MEDIA}
+                    {t('bar.media')} {draftMedia.length}/{MAX_POST_MEDIA}
                   </span>
                   <span className="text-[10px] text-apple-gray-400">
-                    影片最長 60 秒・最多 10 個媒體
+                    {language === 'en' ? 'Videos up to 60 sec · Max 10 media items' : '影片最長 60 秒・最多 10 個媒體'}
                   </span>
                 </div>
 
@@ -1403,7 +1405,7 @@ export const TravelBarView: React.FC<{
                       <Tag size={12} />
                       快捷標籤：
                     </span>
-                    {['美食探店', '避雷提醒', '自駕公路', '住宿推薦', '景點秘境', '交通心得', '溫泉放鬆', '滑雪', '海島水上', '獨旅小資'].map(t => (
+                    {['美食探店', '避雷提醒', '自駕公路', '住宿推薦', '景點秘境', '交通心得', '溫泉放鬆', '滑雪', '海島水上', '獨旅小資'].map(tag => { const englishTagLabels: Record<string, string> = { '美食探店': 'Food', '避雷提醒': 'Avoid', '自駕公路': 'Road trip', '住宿推薦': 'Stay', '景點秘境': 'Hidden gems', '交通心得': 'Transport', '溫泉放鬆': 'Hot springs', '滑雪': 'Skiing', '海島水上': 'Island', '獨旅小資': 'Solo budget' }; const t = tag; return (
                       <button
                         key={t}
                         type="button"
@@ -1415,9 +1417,9 @@ export const TravelBarView: React.FC<{
                         }}
                         className="shrink-0 px-3 py-1.5 rounded-full bg-apple-gray-100/90 hover:bg-[#E6F5FF] text-apple-gray-600 hover:text-[#035096] text-xs font-semibold transition-all active:scale-95"
                       >
-                        #{t}
+                        #{language === 'en' ? englishTagLabels[t] || t : t}
                       </button>
-                    ))}
+                    ); })}
                   </div>
                 </div>
               </div>
