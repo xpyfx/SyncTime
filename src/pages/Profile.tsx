@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { GlassSearchInput } from '../components/GlassSearchInput';
 import TravelTrajectory from './TravelTrajectory';
 import { 
@@ -215,6 +216,7 @@ export const ProfilePage: React.FC<{
   onUserClick?: (uid: string) => void
 }> = ({ targetUserId, onBack, onMyPostsClick, onTripClick, onChatClick, onUserClick }) => {
   const { user, profile: myProfile, logout, deleteAccount, blockUser, unblockUser, isUserBlocked, blockedByUsers } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const effectiveUserId = targetUserId || user?.uid;
   const isOwnProfile = !targetUserId || targetUserId === user?.uid;
 
@@ -297,6 +299,7 @@ export const ProfilePage: React.FC<{
   const [showSettings, setShowSettings] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showUsernameEditModal, setShowUsernameEditModal] = useState(false);
@@ -424,7 +427,8 @@ export const ProfilePage: React.FC<{
     showBlocklist ||
     showPrivacyPolicy ||
     showHiddenPosts ||
-    showAIAssistant
+    showAIAssistant ||
+    showLanguagePicker
   );
 
   const isAnyModalOpen = Boolean(
@@ -435,6 +439,7 @@ export const ProfilePage: React.FC<{
     showPrivacyPolicy ||
     showHiddenPosts ||
     showAIAssistant ||
+    showLanguagePicker ||
     showEditPassport ||
     showTravelTrajectory ||
     showSaved ||
@@ -1786,8 +1791,8 @@ export const ProfilePage: React.FC<{
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overscroll-none"
           >
             <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
-              <h2 className="text-lg font-bold text-apple-gray-900">設定</h2>
-              <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
+              <h2 className="text-lg font-bold text-apple-gray-900">{t('settings.title')}</h2>
+              <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">{t('settings.done')}</button>
             </div>
             
             <div className={`flex-1 ${
@@ -1825,7 +1830,7 @@ export const ProfilePage: React.FC<{
                         text-[#17364D]
                         leading-tight
                       ">
-                        SyncTime 專屬 AI 小助手
+                        {t('settings.aiAssistant')}
                       </span>
 
                       {/* 官方認證：不用再顯示「官／方」文字 */}
@@ -1843,7 +1848,9 @@ export const ProfilePage: React.FC<{
                       font-medium
                       leading-relaxed
                     ">
-                      解答功能操作、旅伴篩選、聊天室工具與疑難排解
+                      {language === 'en'
+                        ? 'Help with features, travel buddy filters, chat tools, and troubleshooting'
+                        : '解答功能操作、旅伴篩選、聊天室工具與疑難排解'}
                     </p>
                   </div>
 
@@ -1875,19 +1882,19 @@ export const ProfilePage: React.FC<{
               </div>
 
               <div className="bg-white rounded-2xl overflow-hidden shadow-apple-sm border border-apple-gray-100">
-                <ProfileItem icon={Bot} label="SyncTime 專屬 AI 小助手" onClick={() => setShowAIAssistant(true)} />
-                <ProfileItem icon={Edit2} label="修改護照資料" onClick={() => {
+                <ProfileItem icon={Bot} label={t('settings.aiAssistant')} onClick={() => setShowAIAssistant(true)} />
+                <ProfileItem icon={Edit2} label={t('settings.editPassport')} onClick={() => {
                   setShowEditPassport(true);
                   setShowSettings(false);
                 }} />
                 
                 {/* Basic Settings Section */}
                 <div className="px-4 py-3 bg-apple-gray-50/50 border-b border-apple-gray-50">
-                   <span className="text-[10px] font-black text-apple-gray-300 uppercase tracking-widest">基本設定</span>
+                   <span className="text-[10px] font-black text-apple-gray-300 uppercase tracking-widest">{t('settings.basic')}</span>
                 </div>
                 
-                <ProfileItem icon={Settings} label="手勢設定" onClick={() => setShowGestureSettings(true)} />
-                <ProfileItem icon={EyeOff} label="隱藏的貼文" onClick={() => setShowHiddenPosts(true)} />
+                <ProfileItem icon={Settings} label={t('settings.gestures')} onClick={() => setShowGestureSettings(true)} />
+                <ProfileItem icon={EyeOff} label={t('settings.hiddenPosts')} onClick={() => setShowHiddenPosts(true)} />
 
                 {/* Trajectory Privacy Toggle Item */}
                 <div className="w-full flex items-center justify-between p-4 bg-white border-b border-apple-gray-50">
@@ -1896,8 +1903,8 @@ export const ProfilePage: React.FC<{
                       <Globe size={18} />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-sm font-semibold text-apple-gray-900">公開我的旅遊軌跡</span>
-                      <span className="text-[10px] text-apple-gray-400">允許其他旅伴查看您的旅遊足跡</span>
+                      <span className="text-sm font-semibold text-apple-gray-900">{t('settings.publicTrajectory')}</span>
+                      <span className="text-[10px] text-apple-gray-400">{t('settings.publicTrajectoryHint')}</span>
                     </div>
                   </div>
                   <button
@@ -1945,28 +1952,37 @@ export const ProfilePage: React.FC<{
                   </button>
                 </div>
 
-                <div className="w-full flex items-center justify-between p-4 bg-white active:bg-apple-gray-50 transition-colors border-b border-apple-gray-50 last:border-0 cursor-not-allowed opacity-50">
+                <button
+                  type="button"
+                  onClick={() => setShowLanguagePicker(true)}
+                  className="w-full flex items-center justify-between p-4 bg-white active:bg-apple-gray-50 transition-colors border-b border-apple-gray-50 last:border-0"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-apple-gray-50 flex items-center justify-center text-apple-gray-600">
-                      <Search size={18} />
+                      <Globe size={18} />
                     </div>
-                    <span className="text-sm font-Semibold">語言 (Language)</span>
+                    <span className="text-sm font-semibold">{t('settings.language')}</span>
                   </div>
-                  <span className="text-xs text-apple-gray-300">繁體中文</span>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-apple-gray-400">
+                      {language === 'en' ? t('language.english') : t('language.traditionalChinese')}
+                    </span>
+                    <ChevronRight size={16} className="text-apple-gray-200" />
+                  </div>
+                </button>
                 <ProfileItem
                   icon={Bell}
-                  label="通知設定"
+                  label={t('settings.notifications')}
                   onClick={() => {
                     setShowNotificationSettings(true);
                   }}
                 />
-                <ProfileItem icon={Shield} label="封鎖名單" onClick={() => {
+                <ProfileItem icon={Shield} label={t('settings.blocked')} onClick={() => {
                   setShowBlocklist(true);
                 }} />
                 <ProfileItem
                   icon={FileText}
-                  label="隱私權政策"
+                  label={t('settings.privacy')}
                   onClick={() => {
                     setShowPrivacyPolicy(true);
                   }}
@@ -1976,7 +1992,7 @@ export const ProfilePage: React.FC<{
               <div className="bg-white rounded-2xl overflow-hidden shadow-apple-sm border border-apple-gray-100">
                 <ProfileItem 
                   icon={LogOut} 
-                  label="登出帳號" 
+                  label={t('settings.logout')} 
                   color="text-apple-gray-600" 
                   onClick={() => {
                     logout();
@@ -4422,6 +4438,70 @@ export const ProfilePage: React.FC<{
                 onUserClick?.(uid);
               }}
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLanguagePicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[260] bg-black/35 backdrop-blur-sm flex items-end justify-center"
+            onClick={() => setShowLanguagePicker(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full max-w-md bg-white rounded-t-[28px] px-5 pt-5 pb-[max(env(safe-area-inset-bottom,0px),28px)] shadow-2xl"
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-apple-gray-900">{t('language.choose')}</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowLanguagePicker(false)}
+                  className="w-8 h-8 rounded-full bg-apple-gray-100 flex items-center justify-center text-apple-gray-500"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {([
+                  { value: 'zh-TW' as const, label: t('language.traditionalChinese') },
+                  { value: 'en' as const, label: t('language.english') }
+                ]).map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setLanguage(option.value);
+                      setShowLanguagePicker(false);
+                    }}
+                    className={`w-full h-14 rounded-2xl px-4 flex items-center justify-between border transition-all ${
+                      language === option.value
+                        ? 'bg-[#E6F5FF] border-[#035096]/30 text-[#035096]'
+                        : 'bg-white border-apple-gray-100 text-apple-gray-800'
+                    }`}
+                  >
+                    <span className="text-sm font-bold">{option.label}</span>
+                    {language === option.value && (
+                      <CheckCircle2 size={18} className="text-[#035096]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-4 text-[10px] leading-relaxed text-apple-gray-400">
+                {language === 'en'
+                  ? 'The app interface changes immediately. User-created content stays stored in its original language and is translated only for your view.'
+                  : 'App 介面會立即切換語言。使用者發布的原始內容不會被修改，只會依您的語言設定顯示翻譯。'}
+              </p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
