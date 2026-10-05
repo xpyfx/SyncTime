@@ -34,6 +34,59 @@ type DraftPostMedia = {
   reason?: string;
 };
 
+const fileToDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = event => {
+      const result = event.target?.result;
+      if (typeof result === 'string') resolve(result);
+      else reject(new Error('IMAGE_READ_FAILED'));
+    };
+    reader.onerror = () => reject(new Error('IMAGE_READ_FAILED'));
+    reader.readAsDataURL(file);
+  });
+
+const compressTravelBarImage = (
+  dataUrl: string,
+  maxWidth = 600,
+  maxHeight = 600,
+  quality = 0.4
+) =>
+  new Promise<string>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      let width = image.width;
+      let height = image.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('CANVAS_CONTEXT_UNAVAILABLE'));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+
+    image.onerror = () => reject(new Error('IMAGE_LOAD_FAILED'));
+    image.src = dataUrl;
+  });
+
 export const TravelBarView: React.FC<{ 
   onChatClick: (roomId: string) => void,
   onAvatarClick?: (uid: string) => void,
@@ -488,6 +541,39 @@ export const TravelBarView: React.FC<{
 
         const uploadedMedia = await Promise.all(
           mediaToPublish.map(async (item, index) => {
+            // Images intentionally follow the exact same proven pattern used by Chat:
+            // FileReader -> compress -> store the data URL directly in Firestore.
+            if (item.type === 'image') {
+              const originalDataUrl = await fileToDataUrl(item.file);
+              const compressedDataUrl = await compressTravelBarImage(
+                originalDataUrl,
+                600,
+                600,
+                0.4
+              );
+
+              progressByItem.set(item.id, 1);
+              const values = Array.from(progressByItem.values());
+              const average =
+                values.length > 0
+                  ? values.reduce((sum, value) => sum + value, 0) / values.length
+                  : 1;
+
+              emitPublishStatus({
+                id: jobId,
+                status: 'publishing',
+                progress: Math.max(1, Math.min(99, Math.round(average * 100))),
+                message: '旅文發布中…',
+                cancel: cancelJob
+              });
+
+              return {
+                type: 'image' as const,
+                url: compressedDataUrl
+              };
+            }
+
+            // Videos remain in Storage because Firestore documents have a strict size limit.
             const sanitizedName = item.file.name
               .replace(/[^a-zA-Z0-9._-]+/g, '-')
               .slice(-80);
@@ -503,14 +589,14 @@ export const TravelBarView: React.FC<{
               customMetadata: {
                 ownerId: currentUserId,
                 postId: postRef.id,
-                safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
+                safetyStatus: 'approved'
               }
             });
 
             jobState.tasks.push(uploadTask);
             progressByItem.set(item.id, 0);
 
-            const timeoutMs = item.type === 'video' ? 300_000 : 120_000;
+            const timeoutMs = 300_000;
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
             try {
@@ -569,14 +655,18 @@ export const TravelBarView: React.FC<{
 
             const url = await getDownloadURL(mediaRef);
             return {
-              type: item.type,
+              type: 'video' as const,
               url,
-              ...(item.type === 'video' && item.duration
+              ...(item.duration
                 ? { duration: Math.round(item.duration * 10) / 10 }
                 : {})
             };
           })
         );
+
+        const imageUrls = uploadedMedia
+          .filter(item => item.type === 'image')
+          .map(item => item.url);
 
         if (jobState.cancelled) {
           const cancelledError: any = new Error('PUBLISH_CANCELLED');
@@ -596,7 +686,7 @@ export const TravelBarView: React.FC<{
           media: uploadedMedia,
           images: imageUrls,
           imageUrl: imageUrls[0] || '',
-          moderationStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved',
+          moderationStatus: 'approved',
           likesCount: 0,
           commentsCount: 0,
           favoritesCount: 0,
