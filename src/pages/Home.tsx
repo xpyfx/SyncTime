@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Plus, Bookmark, EyeOff, ShieldAlert, Hourglass, X, RotateCcw } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDoc, setDoc, deleteDoc, where, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, deleteDoc, where, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Trip, UserProfile, GestureSettings } from '../types';
 import { TripCard } from '../components/TripCard';
 import { GlassSearchInput } from '../components/GlassSearchInput';
@@ -12,6 +12,7 @@ import { HomeTripFilter, TripFilters, INITIAL_TRIP_FILTERS } from '../components
 import { getContinentByCountry } from '../lib/continentUtils';
 import { ReportModal } from '../components/ReportModal';
 import { useLanguage } from '../context/LanguageContext';
+import { useUserDirectory } from '../context/UserDirectoryContext';
 
 interface HomeViewProps {
   onAvatarClick: (userId: string) => void;
@@ -22,8 +23,8 @@ interface HomeViewProps {
 export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, onAddClick }) => {
   const { user, profile, isUserBlocked } = useAuth();
   const { language, t } = useLanguage();
+  const { profiles } = useUserDirectory();
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [savedTripIds, setSavedTripIds] = useState<Set<string>>(new Set());
@@ -53,28 +54,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       setTrips(data);
       setLoading(false);
 
-      // Fetch authors for search and privacy checks
-      const authorIds = Array.from(new Set(data.map(t => t.authorId)));
-      if (authorIds.length > 0) {
-        try {
-          const results = await Promise.all(authorIds.map(async (id) => {
-            const uSnap = await getDoc(doc(db, 'users', id));
-            if (uSnap.exists()) {
-              return { id, profile: uSnap.data() as UserProfile };
-            }
-            return null;
-          }));
-          const fetched: Record<string, UserProfile> = {};
-          results.forEach(r => {
-            if (r) fetched[r.id] = r.profile;
-          });
-          if (Object.keys(fetched).length > 0) {
-            setProfiles(prev => ({ ...prev, ...fetched }));
-          }
-        } catch (error) {
-          console.error('Error fetching profiles: ', error);
-        }
-      }
+
     }, (err) => {
       console.warn('Trips onSnapshot error:', err);
       setLoading(false);
