@@ -5,7 +5,7 @@ import { Navbar } from './components/Navbar';
 import { AnimatePresence, motion } from 'motion/react';
 import { SyncTimeLogo, OfficialAppleLogo, OfficialGoogleLogo } from './components/SyncTimeLogo';
 import { OnboardingWelcomeView } from './components/OnboardingWelcomeView';
-import { X } from 'lucide-react';
+import { X, LoaderCircle, CheckCircle2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { db } from './lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -21,9 +21,19 @@ import { UserPostsView } from './pages/UserPostsView';
 import { getRoomUnreadCount, ChatRoom } from './types';
 
 
+type PostPublishStatus = {
+  id: string;
+  status: 'publishing' | 'published' | 'failed' | 'cancelled';
+  progress?: number;
+  message?: string;
+  cancel?: () => void;
+  retry?: () => void;
+};
+
 const AppContent = () => {
   const { user, profile, blockedByUsers, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const [postPublishJobs, setPostPublishJobs] = useState<PostPublishStatus[]>([]);
   
   // Persistent category & tab states (記憶使用者最後選擇的分類與主分頁)
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -115,6 +125,37 @@ const AppContent = () => {
       // ignore
     }
   }, [travelBarTab]);
+
+  // Global Threads-style background publish status.
+  useEffect(() => {
+    const handlePublishStatus = (event: Event) => {
+      const detail = (event as CustomEvent<PostPublishStatus>).detail;
+      if (!detail?.id) return;
+
+      setPostPublishJobs(previous => {
+        const exists = previous.some(job => job.id === detail.id);
+        if (exists) {
+          return previous.map(job =>
+            job.id === detail.id ? { ...job, ...detail } : job
+          );
+        }
+        return [...previous, detail];
+      });
+
+      if (detail.status === 'published' || detail.status === 'cancelled') {
+        window.setTimeout(() => {
+          setPostPublishJobs(previous =>
+            previous.filter(job => job.id !== detail.id)
+          );
+        }, detail.status === 'published' ? 3200 : 1800);
+      }
+    };
+
+    window.addEventListener('synctime:post-publish-status', handlePublishStatus as EventListener);
+    return () => {
+      window.removeEventListener('synctime:post-publish-status', handlePublishStatus as EventListener);
+    };
+  }, []);
 
   // 監聽外部導航與歷史紀錄 URL 變化 (例如專屬旅文分享連結點擊)
   useEffect(() => {
@@ -487,7 +528,85 @@ const AppContent = () => {
           </motion.div>
         </AnimatePresence>
       </div>
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} hasUnreadChat={hasUnreadChat} unreadChatCount={unreadChatCount} unreadNotifCount={unreadNotifCount} />
+      <AnimatePresence>
+        {postPublishJobs.length > 0 && (
+          <div
+            className="fixed left-1/2 -translate-x-1/2 z-[115] w-[calc(100%-24px)] max-w-sm space-y-2 pointer-events-none"
+            style={{ bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 8px) + 82px)' }}
+          >
+            {postPublishJobs.slice(-3).map(job => (
+              <motion.div
+                key={job.id}
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                className="pointer-events-auto rounded-2xl bg-[#2B2B2B]/92 text-white shadow-2xl backdrop-blur-xl px-4 py-3 flex items-center gap-3 border border-white/10"
+              >
+                <div className="shrink-0">
+                  {job.status === 'publishing' && (
+                    <LoaderCircle size={18} className="animate-spin text-white/90" />
+                  )}
+                  {job.status === 'published' && (
+                    <CheckCircle2 size={18} className="text-emerald-300" />
+                  )}
+                  {job.status === 'failed' && (
+                    <AlertTriangle size={18} className="text-amber-300" />
+                  )}
+                  {job.status === 'cancelled' && (
+                    <X size={18} className="text-white/70" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold truncate">
+                    {job.message ||
+                      (job.status === 'publishing'
+                        ? '旅文發布中…'
+                        : job.status === 'published'
+                        ? '旅文已發布'
+                        : job.status === 'failed'
+                        ? '發布失敗'
+                        : '已取消發布')}
+                  </div>
+
+                  {job.status === 'publishing' && (
+                    <div className="mt-1.5 h-1 rounded-full bg-white/15 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-white/80"
+                        animate={{ width: `${Math.max(4, job.progress || 0)}%` }}
+                        transition={{ duration: 0.18 }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {job.status === 'publishing' && job.cancel && (
+                  <button
+                    type="button"
+                    onClick={job.cancel}
+                    className="shrink-0 text-[11px] font-bold text-white/75 hover:text-white px-1"
+                  >
+                    取消
+                  </button>
+                )}
+
+                {job.status === 'failed' && job.retry && (
+                  <button
+                    type="button"
+                    onClick={job.retry}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-white"
+                  >
+                    <RotateCcw size={13} />
+                    重試
+                  </button>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
+
+            <Navbar activeTab={activeTab} setActiveTab={setActiveTab} hasUnreadChat={hasUnreadChat} unreadChatCount={unreadChatCount} unreadNotifCount={unreadNotifCount} />
       {profile &&
         !profile.isDeleted &&
         profile.usernameCustomized !== true && (
