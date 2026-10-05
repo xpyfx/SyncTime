@@ -1403,7 +1403,7 @@ export const TravelBarView: React.FC<{
                   <div className="flex items-center gap-2 w-max pr-3">
                     <span className="text-[11px] font-bold text-apple-gray-400 shrink-0 flex items-center gap-1">
                       <Tag size={12} />
-                      快捷標籤：
+                      {t('bar.quickTags')}
                     </span>
                     {['美食探店', '避雷提醒', '自駕公路', '住宿推薦', '景點秘境', '交通心得', '溫泉放鬆', '滑雪', '海島水上', '獨旅小資'].map(tag => { const englishTagLabels: Record<string, string> = { '美食探店': 'Food', '避雷提醒': 'Avoid', '自駕公路': 'Road trip', '住宿推薦': 'Stay', '景點秘境': 'Hidden gems', '交通心得': 'Transport', '溫泉放鬆': 'Hot springs', '滑雪': 'Skiing', '海島水上': 'Island', '獨旅小資': 'Solo budget' }; const t = tag; return (
                       <button
