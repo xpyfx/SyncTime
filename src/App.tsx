@@ -1,6 +1,7 @@
 import { UsernameSetupModal } from './components/UsernameSetupModal';
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { AnimatePresence, motion } from 'motion/react';
 import { SyncTimeLogo, OfficialAppleLogo, OfficialGoogleLogo } from './components/SyncTimeLogo';
@@ -32,6 +33,7 @@ type PostPublishStatus = {
 
 const AppContent = () => {
   const { user, profile, blockedByUsers, loading, login, loginWithApple, authModal, closeAuthModal } = useAuth();
+  const { language } = useLanguage();
   const [showLoginSheet, setShowLoginSheet] = useState(false);
   const [postPublishJobs, setPostPublishJobs] = useState<PostPublishStatus[]>([]);
   
@@ -336,7 +338,7 @@ const AppContent = () => {
                       SyncTime 共時
                     </h2>
                     <p className="text-xs text-apple-gray-500 leading-relaxed px-2 font-medium">
-                      探索世界，找尋最合適的旅伴，精彩生活，與君共時。
+                      {language === 'en' ? 'Explore the world, meet the right travel companions, and share meaningful journeys together.' : '探索世界，找尋最合適的旅伴，精彩生活，與君共時。'}
                     </p>
                   </div>
 
@@ -348,7 +350,7 @@ const AppContent = () => {
                       className="w-full h-13 bg-apple-gray-700 text-white rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-apple-gray-600 active:scale-[0.98] transition-all shadow-sm cursor-pointer text-sm"
                     >
                       <OfficialGoogleLogo className="w-4 h-4" />
-                      <span>使用 Google 登入</span>
+                      <span>{language === 'en' ? 'Continue with Google' : '使用 Google 登入'}</span>
                     </button>
 
                     <button
@@ -358,7 +360,7 @@ const AppContent = () => {
                       className="w-full h-13 bg-black text-white rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-zinc-900 active:scale-[0.98] transition-all shadow-sm cursor-pointer text-sm"
                     >
                       <OfficialAppleLogo className="w-4 h-4 fill-current" />
-                      <span>使用 Apple 帳號登入</span>
+                      <span>{language === 'en' ? 'Continue with Apple' : '使用 Apple 帳號登入'}</span>
                     </button>
                   </div>
 
@@ -368,12 +370,12 @@ const AppContent = () => {
                       onClick={() => setShowLoginSheet(false)}
                       className="text-xs font-semibold text-apple-gray-400 hover:text-apple-gray-600 transition-colors"
                     >
-                      返回前導介紹
+                      {language === 'en' ? 'Back to introduction' : '返回前導介紹'}
                     </button>
                   </div>
 
                   <p className="text-[10px] text-apple-gray-400 pt-1 leading-normal">
-                    登入即代表您同意 SyncTime 服務條款與隱私權保護政策
+                    {language === 'en' ? 'By continuing, you agree to the SyncTime Terms of Service and Privacy Policy.' : '登入即代表您同意 SyncTime 服務條款與隱私權保護政策'}
                   </p>
                 </div>
               </motion.div>
@@ -693,8 +695,10 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
