@@ -382,11 +382,16 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
 
             {/* Comment Text with URL & @Mention parsing */}
             <div className="text-[12px] leading-relaxed text-apple-gray-700">
-              <FormattedPostText 
-                content={comment.content} 
-                className="text-[12px] leading-relaxed text-apple-gray-700 font-normal"
-                onLinkClick={onLinkClick}
-                onMentionClick={onMentionClick}
+              <TranslatedUserText
+                text={comment.content}
+                render={(displayText) => (
+                  <FormattedPostText
+                    content={displayText}
+                    className="text-[12px] leading-relaxed text-apple-gray-700 font-normal"
+                    onLinkClick={onLinkClick}
+                    onMentionClick={onMentionClick}
+                  />
+                )}
               />
             </div>
           </div>
@@ -477,11 +482,16 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                     </div>
 
                     <div className="text-[11.5px] leading-relaxed text-apple-gray-700">
-                      <FormattedPostText
-                        content={r.text}
-                        className="text-[11.5px] leading-relaxed text-apple-gray-700 font-normal"
-                        onLinkClick={onLinkClick}
-                        onMentionClick={onMentionClick}
+                      <TranslatedUserText
+                        text={r.text}
+                        render={(displayText) => (
+                          <FormattedPostText
+                            content={displayText}
+                            className="text-[11.5px] leading-relaxed text-apple-gray-700 font-normal"
+                            onLinkClick={onLinkClick}
+                            onMentionClick={onMentionClick}
+                          />
+                        )}
                       />
                     </div>
                   </div>
