@@ -11,6 +11,7 @@ import { GoogleMapsLocationModal } from '../components/GoogleMapsLocationModal';
 import { GoogleMapsLocationCard } from '../components/GoogleMapsLocationCard';
 import { SharedBarPostCard } from '../components/SharedBarPostCard';
 import { SharedTripCard } from '../components/SharedTripCard';
+import { TranslatedUserText } from '../components/TranslatedUserText';
 
 const makeDeletedUserProfile = (uid: string): UserProfile => ({
   uid,
@@ -3901,7 +3902,12 @@ React.useLayoutEffect(() => {
                             : 'bg-white text-[#2A2B2A] border border-apple-gray-100 shadow-xs rounded-tl-xs'
                         }`}
                       >
-                        <div className="break-words whitespace-pre-wrap">{m.text}</div>
+                        <TranslatedUserText
+                          text={m.text}
+                          render={(displayText) => (
+                            <div className="break-words whitespace-pre-wrap">{displayText}</div>
+                          )}
+                        />
                         {(m.text.includes('📍 地點') || m.text.includes('📍 地點分享：')) && (
                           <button
                             type="button"
