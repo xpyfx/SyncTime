@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, collection
 import { useAuth } from '../context/AuthContext';
 import { OfficialBadge } from './OfficialBadge';
 import { useLanguage } from '../context/LanguageContext';
+import { useUserDirectory } from '../context/UserDirectoryContext';
 
 interface TripCardProps {
   trip: Trip;
@@ -18,22 +19,10 @@ interface TripCardProps {
 export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick, onCommentClick, onSaveToggle }) => {
   const { user } = useAuth();
   const { language } = useLanguage();
-  const [author, setAuthor] = useState<UserProfile | null>(null);
-  const [authorLoaded, setAuthorLoaded] = useState(false);
+  const { profiles, loaded: authorDirectoryLoaded } = useUserDirectory();
+  const author = profiles[trip.authorId];
+  const authorLoaded = authorDirectoryLoaded;
   const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    setAuthor(null);
-    setAuthorLoaded(false);
-
-    getDoc(doc(db, 'users', trip.authorId))
-      .then(s => {
-        if (s.exists()) {
-          setAuthor(s.data() as UserProfile);
-        }
-      })
-      .finally(() => setAuthorLoaded(true));
-  }, [trip.authorId]);
 
   useEffect(() => {
     if (!user) return;
