@@ -7,6 +7,7 @@ import { BarPostCard } from '../components/BarPostCard';
 import { GlassSearchInput } from '../components/GlassSearchInput';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useUserDirectory } from '../context/UserDirectoryContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { SwipeableWrapper } from '../components/SwipeableWrapper';
 import { ReportModal } from '../components/ReportModal';
@@ -129,13 +130,7 @@ export const TravelBarView: React.FC<{
         if (snap.exists()) {
           const p = { id: snap.id, ...snap.data() } as BarPost;
           setExtraTargetPost(p);
-          if (!authors[p.authorId]) {
-            getDoc(doc(db, 'users', p.authorId)).then(uSnap => {
-              if (uSnap.exists()) {
-                setAuthors(prev => ({ ...prev, [p.authorId]: uSnap.data() as UserProfile }));
-              }
-            });
-          }
+
         }
       }).catch(console.warn);
     }
@@ -146,7 +141,7 @@ export const TravelBarView: React.FC<{
       }
     }, 400);
   }, [targetPostId, posts]);
-  const [authors, setAuthors] = useState<Record<string, UserProfile>>({});
+  const { profiles: authors, loaded: authorsLoaded } = useUserDirectory();
   const [search, setSearch] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
@@ -393,28 +388,7 @@ export const TravelBarView: React.FC<{
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BarPost));
       setPosts(data);
 
-      // Fetch authors
-      const authorIds = Array.from(new Set(data.map(p => p.authorId)));
-      if (authorIds.length > 0) {
-        try {
-          const results = await Promise.all(authorIds.map(async (id) => {
-            const uDoc = await getDoc(doc(db, 'users', id));
-            if (uDoc.exists()) {
-              return { id, profile: uDoc.data() as UserProfile };
-            }
-            return null;
-          }));
-          const fetched: Record<string, UserProfile> = {};
-          results.forEach(r => {
-            if (r) fetched[r.id] = r.profile;
-          });
-          if (Object.keys(fetched).length > 0) {
-            setAuthors(prev => ({ ...prev, ...fetched }));
-          }
-        } catch (error) {
-          console.error('Error fetching authors: ', error);
-        }
-      }
+
     }, (err) => {
       console.warn('BarPosts snapshot listener warning:', err);
     });
@@ -1161,7 +1135,8 @@ export const TravelBarView: React.FC<{
                 >
                   <BarPostCard 
                     post={post} 
-                    author={authors[post.authorId]} 
+                    author={authors[post.authorId]}
+                    authorLoaded={authorsLoaded}
                     onChatClick={onChatClick} 
                     onAvatarClick={onAvatarClick} 
                     onReport={(p) => setReportingPost(p)}
