@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HomeTripFilter, TripFilters, INITIAL_TRIP_FILTERS } from '../components/HomeTripFilter';
 import { getContinentByCountry } from '../lib/continentUtils';
 import { ReportModal } from '../components/ReportModal';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HomeViewProps {
   onAvatarClick: (userId: string) => void;
@@ -20,6 +21,7 @@ interface HomeViewProps {
 
 export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, onAddClick }) => {
   const { user, profile, isUserBlocked } = useAuth();
+  const { language, t } = useLanguage();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
   const [search, setSearch] = useState('');
@@ -235,11 +237,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       {/* Header / Search */}
       <div className="sticky top-0 bg-[#8AD2FF]/20 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 transition-all">
         <div className="flex justify-between items-center mb-5">
-          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">為您推薦</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('home.forYou')}</h1>
           <button 
             onClick={onAddClick}
             className="w-11 h-11 bg-white/95 hover:bg-white text-apple-gray-800 rounded-full flex items-center justify-center shadow-apple-sm active:scale-90 transition-transform cursor-pointer"
-            aria-label="新增貼文"
+            aria-label={language === 'en' ? 'Create trip' : '新增貼文'}
           >
             <Plus size={22} strokeWidth={2.5} />
           </button>
@@ -249,7 +251,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
         <div className="flex items-center gap-2.5 mb-3">
           <div className="flex-1 min-w-0">
             <GlassSearchInput
-              placeholder="搜尋目的地或旅伴"
+              placeholder={t('home.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onClear={() => setSearch('')}
@@ -263,7 +265,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 ? 'bg-apple-blue text-white shadow-[0_8px_20px_rgba(0,122,255,0.35)]'
                 : 'bg-gradient-to-b from-white/75 via-white/50 to-white/35 backdrop-blur-xl backdrop-saturate-180 border border-white/80 text-apple-gray-800 shadow-[0_8px_24px_rgba(31,38,135,0.1),inset_0_1.5px_2px_0_rgba(255,255,255,0.95),inset_0_-1.5px_2px_0_rgba(0,0,0,0.06)] hover:bg-white/90'
             }`}
-            aria-label="篩選旅程"
+            aria-label={t('home.filter')}
           >
             <Hourglass 
               size={18} 
@@ -300,7 +302,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
               className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-apple-gray-200/80 hover:bg-apple-gray-300 text-apple-gray-700 font-semibold active:scale-95 transition-all cursor-pointer"
             >
               <RotateCcw size={10} />
-              <span>重設</span>
+              <span>{t('home.reset')}</span>
             </button>
             {filters.statuses.map(st => (
               <span
@@ -327,7 +329,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, startDate: '', endDate: '' }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>{filters.startDate || '任意'} ~ {filters.endDate || '任意'}</span>
+                <span>{filters.startDate || (language === 'en' ? 'Any' : '任意')} ~ {filters.endDate || (language === 'en' ? 'Any' : '任意')}</span>
                 <X size={11} />
               </span>
             )}
