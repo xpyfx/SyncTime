@@ -2,6 +2,7 @@ import { UsernameSetupModal } from './components/UsernameSetupModal';
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { UserDirectoryProvider } from './context/UserDirectoryContext';
 import { Navbar } from './components/Navbar';
 import { AnimatePresence, motion } from 'motion/react';
 import { SyncTimeLogo, OfficialAppleLogo, OfficialGoogleLogo } from './components/SyncTimeLogo';
@@ -697,7 +698,9 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <AppContent />
+        <UserDirectoryProvider>
+          <AppContent />
+        </UserDirectoryProvider>
       </AuthProvider>
     </LanguageProvider>
   );
