@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { OfficialBadge } from './OfficialBadge';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TripCardProps {
   trip: Trip;
@@ -16,6 +17,7 @@ interface TripCardProps {
 
 export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick, onCommentClick, onSaveToggle }) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [author, setAuthor] = useState<UserProfile | null>(null);
   const [authorLoaded, setAuthorLoaded] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -89,11 +91,11 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-xs tracking-tight group-hover:underline inline-flex items-center gap-1">
-              <span>{isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '載入中...')}</span>
+              <span>{isDeletedAuthor ? (language === 'en' ? 'Deleted account' : '已註銷帳號') : (author?.displayName || (language === 'en' ? 'Loading…' : '載入中...'))}</span>
               {!isDeletedAuthor && <OfficialBadge profile={author} size={12} />}
             </span>
             <span className="text-[10px] text-apple-gray-300 font-medium">
-              {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+              {isDeletedAuthor ? (language === 'en' ? 'Account deleted' : '帳號已刪除') : `@${author?.username || 'unknown'}`}
             </span>
           </div>
         </div>
@@ -115,7 +117,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
              <Calendar size={12} strokeWidth={2.5} />
              <h3 className="text-xs font-bold">
                {trip.startDate.replace(/-/g, '/')} – {trip.endDate.replace(/-/g, '/')}
-               {trip.isAdjustable && <span className="ml-1 opacity-50 font-normal underline decoration-apple-gray-200 font-xs">可微調</span>}
+               {trip.isAdjustable && <span className="ml-1 opacity-50 font-normal underline decoration-apple-gray-200 font-xs">{language === 'en' ? 'Flexible' : '可微調'}</span>}
              </h3>
           </div>
         </div>
@@ -126,10 +128,10 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
             trip.status === '已滿員' ? 'bg-red-50 text-red-500' : 
             'bg-apple-gray-600 text-white'
           }`}>
-            {trip.status}
+            {language === 'en' ? (trip.status === '徵人中' ? 'Recruiting' : trip.status === '已滿員' ? 'Full' : 'Cancelled') : trip.status}
           </span>
           <span className="px-2.5 py-1 bg-apple-gray-50 text-apple-gray-600 rounded-lg text-[10px] font-bold">
-            {trip.totalPeople}人團
+            {language === 'en' ? `${trip.totalPeople} people` : `${trip.totalPeople}人團`}
           </span>
           {trip.isFriendsOnly && (
             <span className="px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-bold">
@@ -137,14 +139,14 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
             </span>
           )}
           <span className="px-2.5 py-1 bg-apple-gray-50 text-apple-gray-600 rounded-lg text-[10px] font-bold">
-            {trip.seekingGender === '男女' ? '不限性別' : `限${trip.seekingGender}性`}
+            {language === 'en' ? (trip.seekingGender === '男女' ? 'Any gender' : trip.seekingGender === '男' ? 'Men only' : 'Women only') : (trip.seekingGender === '男女' ? '不限性別' : `限${trip.seekingGender}性`)}
           </span>
           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
             trip.budgetLevel === '高價' ? 'bg-orange-50 text-[#D44000]' : 
             trip.budgetLevel === '中價' ? 'bg-blue-50 text-apple-blue' :
             'bg-green-50 text-[#1D821D]'
           }`}>
-            {trip.budgetLevel}旅遊
+            {language === 'en' ? (trip.budgetLevel === '高價' ? 'Premium' : trip.budgetLevel === '中價' ? 'Mid-range' : 'Budget') : `${trip.budgetLevel}旅遊`}
           </span>
         </div>
       </div>
