@@ -49,6 +49,7 @@ import { TranslatedUserText } from './TranslatedUserText';
 interface BarPostCardProps {
   post: BarPost;
   author?: UserProfile;
+  authorLoaded?: boolean;
   onChatClick?: (roomId: string) => void;
   onAvatarClick?: (uid: string) => void;
   onReport?: (post: BarPost) => void;
@@ -602,8 +603,9 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
 };
 
 export const BarPostCard: React.FC<BarPostCardProps> = ({ 
-  post, 
-  author, 
+  post,
+  author,
+  authorLoaded = Boolean(author),
   onChatClick, 
   onAvatarClick, 
   onReport,
@@ -948,7 +950,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     }
   };
 
-  const isDeletedAuthor = !author || author.isDeleted;
+  const isAuthorLoading = !authorLoaded && !author;
+  const isDeletedAuthor = authorLoaded && (!author || Boolean(author.isDeleted));
   const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
   const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
   const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
@@ -979,7 +982,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               <img src={author.avatarUrl} alt={author.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
-                {isDeletedAuthor ? '—' : (author?.displayName?.[0] || '?')}
+                {isDeletedAuthor ? '—' : (author?.displayName?.[0] || (isAuthorLoading ? '' : '?'))}
               </div>
             )}
           </div>
@@ -992,12 +995,12 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group min-w-0" onClick={() => onAvatarClick?.(post.authorId)}>
                <span className="font-bold text-sm tracking-tight group-hover:underline truncate inline-flex items-center gap-1">
                  <span className="truncate">
-                   {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || '用戶')}
+                   {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || (isAuthorLoading ? '載入中...' : '用戶'))}
                  </span>
                  {!isDeletedAuthor && <OfficialBadge profile={author} size={13} />}
                </span>
                <span className="text-[10px] text-apple-gray-300 font-medium truncate">
-                 {isDeletedAuthor ? '帳號已刪除' : `@${author?.username || 'unknown'}`}
+                 {isDeletedAuthor ? '帳號已刪除' : (author?.username ? `@${author.username}` : (isAuthorLoading ? '' : '@unknown'))}
                </span>
             </div>
             
