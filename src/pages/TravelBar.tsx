@@ -20,7 +20,7 @@ import {
   moderatePostMedia,
   PostMediaKind
 } from '../lib/postMedia';
-import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytesResumable, type UploadTask } from 'firebase/storage';
 
 const MEDIA_UPLOAD_DIAGNOSTIC_MODE = true;
 
@@ -107,6 +107,8 @@ export const TravelBarView: React.FC<{
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [draftMedia, setDraftMedia] = useState<DraftPostMedia[]>([]);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const activeUploadTasksRef = useRef<UploadTask[]>([]);
+  const publishCancelledRef = useRef(false);
   const { user, profile, isUserBlocked } = useAuth();
 
   const hasPendingMedia = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'pending');
@@ -129,6 +131,19 @@ export const TravelBarView: React.FC<{
   };
 
   const handleCloseComposer = () => {
+    if (isSubmitting) {
+      publishCancelledRef.current = true;
+      activeUploadTasksRef.current.forEach(task => {
+        try {
+          task.cancel();
+        } catch {
+          // Ignore cancellation races from already-completed uploads.
+        }
+      });
+      activeUploadTasksRef.current = [];
+      setIsSubmitting(false);
+    }
+
     clearDraftMedia();
     setNewPostContent('');
     setShowMentionPicker(false);
@@ -391,6 +406,7 @@ export const TravelBarView: React.FC<{
   const handleCreatePost = async () => {
     if (!canPublish || !user) return;
     setIsSubmitting(true);
+    publishCancelledRef.current = false;
 
     const path = 'barPosts';
     const uploadedRefs: ReturnType<typeof storageRef>[] = [];
@@ -436,7 +452,8 @@ export const TravelBarView: React.FC<{
           );
 
           uploadedRefs.push(mediaRef);
-          await uploadBytes(mediaRef, item.file, {
+
+          const uploadTask = uploadBytesResumable(mediaRef, item.file, {
             contentType: item.file.type,
             customMetadata: {
               ownerId: user.uid,
@@ -444,6 +461,47 @@ export const TravelBarView: React.FC<{
               safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
             }
           });
+
+          activeUploadTasksRef.current.push(uploadTask);
+
+          const timeoutMs = item.type === 'video' ? 180_000 : 60_000;
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+          try {
+            await Promise.race([
+              new Promise<void>((resolve, reject) => {
+                uploadTask.on(
+                  'state_changed',
+                  undefined,
+                  reject,
+                  () => resolve()
+                );
+              }),
+              new Promise<void>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                  try {
+                    uploadTask.cancel();
+                  } catch {
+                    // Ignore cancellation races.
+                  }
+                  const timeoutError: any = new Error('MEDIA_UPLOAD_TIMEOUT');
+                  timeoutError.code = 'storage/retry-limit-exceeded';
+                  reject(timeoutError);
+                }, timeoutMs);
+              })
+            ]);
+          } finally {
+            if (timeoutId) clearTimeout(timeoutId);
+            activeUploadTasksRef.current = activeUploadTasksRef.current.filter(
+              task => task !== uploadTask
+            );
+          }
+
+          if (publishCancelledRef.current) {
+            const cancelledError: any = new Error('PUBLISH_CANCELLED');
+            cancelledError.code = 'publish/cancelled';
+            throw cancelledError;
+          }
 
           const url = await getDownloadURL(mediaRef);
           return {
@@ -460,6 +518,12 @@ export const TravelBarView: React.FC<{
         .filter(item => item.type === 'image')
         .map(item => item.url);
 
+      if (publishCancelledRef.current) {
+        const cancelledError: any = new Error('PUBLISH_CANCELLED');
+        cancelledError.code = 'publish/cancelled';
+        throw cancelledError;
+      }
+
       await setDoc(postRef, {
         authorId: user.uid,
         content,
@@ -474,6 +538,13 @@ export const TravelBarView: React.FC<{
         favoritesCount: 0,
         createdAt: serverTimestamp()
       });
+
+      if (publishCancelledRef.current) {
+        await deleteDoc(postRef).catch(() => {});
+        const cancelledError: any = new Error('PUBLISH_CANCELLED');
+        cancelledError.code = 'publish/cancelled';
+        throw cancelledError;
+      }
 
       for (const targetUser of mentionedProfiles) {
         if (targetUser.uid !== user.uid) {
@@ -498,11 +569,26 @@ export const TravelBarView: React.FC<{
       setNewPostContent('');
       setIsPosting(false);
     } catch (error: any) {
-      await Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
+      activeUploadTasksRef.current.forEach(task => {
+        try {
+          task.cancel();
+        } catch {
+          // Ignore cancellation races.
+        }
+      });
+      activeUploadTasksRef.current = [];
+
+      // Cleanup is best-effort and must never keep the composer stuck on "發佈中...".
+      void Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
+
+      const code = String(error?.code || '');
+
+      if (publishCancelledRef.current || code === 'storage/canceled' || code === 'publish/cancelled') {
+        return;
+      }
 
       console.error('Travel Bar media publish failed:', error);
 
-      const code = String(error?.code || '');
       let message = '貼文發佈失敗，請稍後再試。';
 
       if (code === 'storage/unauthorized') {
@@ -512,13 +598,14 @@ export const TravelBarView: React.FC<{
       } else if (code === 'storage/quota-exceeded') {
         message = 'Firebase Storage 儲存額度已達上限。';
       } else if (code === 'storage/retry-limit-exceeded') {
-        message = '照片／影片上傳逾時，請確認網路後再試一次。';
+        message = '照片／影片上傳逾時，已停止本次發佈。請確認網路與 Firebase Storage 後再試一次。';
       } else if (code.startsWith('storage/')) {
         message = `照片／影片上傳失敗（${code}）。`;
       }
 
       window.alert(message);
     } finally {
+      activeUploadTasksRef.current = [];
       setIsSubmitting(false);
     }
   };
