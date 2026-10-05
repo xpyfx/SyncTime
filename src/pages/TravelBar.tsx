@@ -107,8 +107,7 @@ export const TravelBarView: React.FC<{
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [draftMedia, setDraftMedia] = useState<DraftPostMedia[]>([]);
   const mediaInputRef = useRef<HTMLInputElement>(null);
-  const activeUploadTasksRef = useRef<UploadTask[]>([]);
-  const publishCancelledRef = useRef(false);
+  const backgroundPublishJobsRef = useRef<Record<string, { tasks: UploadTask[]; cancelled: boolean }>>({});
   const { user, profile, isUserBlocked } = useAuth();
 
   const hasPendingMedia = !MEDIA_UPLOAD_DIAGNOSTIC_MODE && draftMedia.some(item => item.status === 'pending');
@@ -131,23 +130,11 @@ export const TravelBarView: React.FC<{
   };
 
   const handleCloseComposer = () => {
-    if (isSubmitting) {
-      publishCancelledRef.current = true;
-      activeUploadTasksRef.current.forEach(task => {
-        try {
-          task.cancel();
-        } catch {
-          // Ignore cancellation races from already-completed uploads.
-        }
-      });
-      activeUploadTasksRef.current = [];
-      setIsSubmitting(false);
-    }
-
     clearDraftMedia();
     setNewPostContent('');
     setShowMentionPicker(false);
     setIsPosting(false);
+    setIsSubmitting(false);
   };
 
   const handleRemoveDraftMedia = (id: string) => {
@@ -403,211 +390,304 @@ export const TravelBarView: React.FC<{
     }
   };
 
-  const handleCreatePost = async () => {
+  const emitPublishStatus = (detail: {
+    id: string;
+    status: 'publishing' | 'published' | 'failed' | 'cancelled';
+    progress?: number;
+    message?: string;
+    cancel?: () => void;
+    retry?: () => void;
+  }) => {
+    window.dispatchEvent(
+      new CustomEvent('synctime:post-publish-status', { detail })
+    );
+  };
+
+  const handleCreatePost = () => {
     if (!canPublish || !user) return;
+
+    // Snapshot the draft before closing the composer. File objects stay alive
+    // even after their preview object URLs are revoked.
+    const content = newPostContent.trim();
+    const mediaToPublish = [...safeDraftMedia];
+    const usersSnapshot = [...allUsers];
+    const currentUserId = user.uid;
+    const jobId = `travelbar-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const postRef = doc(collection(db, 'barPosts'));
+    const tags = extractHashtags(content);
+
+    const mentionRegex = /@([a-zA-Z0-9_.\\u4e00-\\u9fa5]+)/g;
+    const mentionMatches = Array.from(content.matchAll(mentionRegex), match =>
+      match[1].toLowerCase()
+    );
+
+    const mentionedUserIds: string[] = [];
+    const mentionedProfiles: UserProfile[] = [];
+
+    mentionMatches.forEach(tag => {
+      const found = usersSnapshot.find(candidate =>
+        (candidate.username && candidate.username.toLowerCase() === tag) ||
+        (candidate.displayName && candidate.displayName.toLowerCase() === tag)
+      );
+
+      if (
+        found &&
+        !isUserBlocked(found.uid) &&
+        !mentionedUserIds.includes(found.uid)
+      ) {
+        mentionedUserIds.push(found.uid);
+        mentionedProfiles.push(found);
+      }
+    });
+
     setIsSubmitting(true);
-    publishCancelledRef.current = false;
 
-    const path = 'barPosts';
-    const uploadedRefs: ReturnType<typeof storageRef>[] = [];
+    // Threads-style UX: close immediately. The upload continues in memory while
+    // the user keeps using the SPA.
+    clearDraftMedia();
+    setNewPostContent('');
+    setShowMentionPicker(false);
+    setIsPosting(false);
+    setIsSubmitting(false);
 
-    try {
-      const content = newPostContent.trim();
-      const tags = extractHashtags(content);
-
-      const mentionRegex = /@([a-zA-Z0-9_.\u4e00-\u9fa5]+)/g;
-      const mentionMatches = Array.from(content.matchAll(mentionRegex), match =>
-        match[1].toLowerCase()
-      );
-
-      const mentionedUserIds: string[] = [];
-      const mentionedProfiles: UserProfile[] = [];
-
-      mentionMatches.forEach(tag => {
-        const found = allUsers.find(candidate =>
-          (candidate.username && candidate.username.toLowerCase() === tag) ||
-          (candidate.displayName && candidate.displayName.toLowerCase() === tag)
-        );
-
-        if (
-          found &&
-          !isUserBlocked(found.uid) &&
-          !mentionedUserIds.includes(found.uid)
-        ) {
-          mentionedUserIds.push(found.uid);
-          mentionedProfiles.push(found);
-        }
-      });
-
-      const postRef = doc(collection(db, path));
-
-      const uploadedMedia = await Promise.all(
-        safeDraftMedia.map(async (item, index) => {
-          const sanitizedName = item.file.name
-            .replace(/[^a-zA-Z0-9._-]+/g, '-')
-            .slice(-80);
-          const mediaRef = storageRef(
-            storage,
-            `bar-posts/${user.uid}/${postRef.id}/${String(index + 1).padStart(2, '0')}-${Date.now()}-${sanitizedName}`
-          );
-
-          uploadedRefs.push(mediaRef);
-
-          const uploadTask = uploadBytesResumable(mediaRef, item.file, {
-            contentType: item.file.type,
-            customMetadata: {
-              ownerId: user.uid,
-              postId: postRef.id,
-              safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
-            }
-          });
-
-          activeUploadTasksRef.current.push(uploadTask);
-
-          const timeoutMs = item.type === 'video' ? 180_000 : 60_000;
-          let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-          try {
-            await Promise.race([
-              new Promise<void>((resolve, reject) => {
-                uploadTask.on(
-                  'state_changed',
-                  undefined,
-                  reject,
-                  () => resolve()
-                );
-              }),
-              new Promise<void>((_, reject) => {
-                timeoutId = setTimeout(() => {
-                  try {
-                    uploadTask.cancel();
-                  } catch {
-                    // Ignore cancellation races.
-                  }
-                  const timeoutError: any = new Error('MEDIA_UPLOAD_TIMEOUT');
-                  timeoutError.code = 'storage/retry-limit-exceeded';
-                  reject(timeoutError);
-                }, timeoutMs);
-              })
-            ]);
-          } finally {
-            if (timeoutId) clearTimeout(timeoutId);
-            activeUploadTasksRef.current = activeUploadTasksRef.current.filter(
-              task => task !== uploadTask
-            );
-          }
-
-          if (publishCancelledRef.current) {
-            const cancelledError: any = new Error('PUBLISH_CANCELLED');
-            cancelledError.code = 'publish/cancelled';
-            throw cancelledError;
-          }
-
-          const url = await getDownloadURL(mediaRef);
-          return {
-            type: item.type,
-            url,
-            ...(item.type === 'video' && item.duration
-              ? { duration: Math.round(item.duration * 10) / 10 }
-              : {})
-          };
-        })
-      );
-
-      const imageUrls = uploadedMedia
-        .filter(item => item.type === 'image')
-        .map(item => item.url);
-
-      if (publishCancelledRef.current) {
-        const cancelledError: any = new Error('PUBLISH_CANCELLED');
-        cancelledError.code = 'publish/cancelled';
-        throw cancelledError;
-      }
-
-      await setDoc(postRef, {
-        authorId: user.uid,
-        content,
-        tags: tags.length > 0 ? tags : [],
-        mentionedUsers: mentionedUserIds,
-        media: uploadedMedia,
-        images: imageUrls,
-        imageUrl: imageUrls[0] || '',
-        moderationStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved',
-        likesCount: 0,
-        commentsCount: 0,
-        favoritesCount: 0,
-        createdAt: serverTimestamp()
-      });
-
-      if (publishCancelledRef.current) {
-        await deleteDoc(postRef).catch(() => {});
-        const cancelledError: any = new Error('PUBLISH_CANCELLED');
-        cancelledError.code = 'publish/cancelled';
-        throw cancelledError;
-      }
-
-      for (const targetUser of mentionedProfiles) {
-        if (targetUser.uid !== user.uid) {
-          try {
-            await addDoc(collection(db, 'notifications'), {
-              type: 'post_mention',
-              fromId: user.uid,
-              toId: targetUser.uid,
-              postId: postRef.id,
-              postSnippet: content.slice(0, 60),
-              postImage: imageUrls[0] || '',
-              status: 'pending',
-              createdAt: serverTimestamp()
-            });
-          } catch (notificationError) {
-            console.warn('Failed to send mention notification:', notificationError);
-          }
-        }
-      }
-
-      clearDraftMedia();
-      setNewPostContent('');
-      setIsPosting(false);
-    } catch (error: any) {
-      activeUploadTasksRef.current.forEach(task => {
+    const cancelJob = () => {
+      const job = backgroundPublishJobsRef.current[jobId];
+      if (!job) return;
+      job.cancelled = true;
+      job.tasks.forEach(task => {
         try {
           task.cancel();
         } catch {
-          // Ignore cancellation races.
+          // Ignore races from tasks that just finished.
         }
       });
-      activeUploadTasksRef.current = [];
+      job.tasks = [];
+      emitPublishStatus({
+        id: jobId,
+        status: 'cancelled',
+        message: '已取消發布'
+      });
+    };
 
-      // Cleanup is best-effort and must never keep the composer stuck on "發佈中...".
-      void Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
+    const runJob = async () => {
+      const jobState = { tasks: [] as UploadTask[], cancelled: false };
+      backgroundPublishJobsRef.current[jobId] = jobState;
+      const uploadedRefs: ReturnType<typeof storageRef>[] = [];
+      const progressByItem = new Map<string, number>();
 
-      const code = String(error?.code || '');
+      emitPublishStatus({
+        id: jobId,
+        status: 'publishing',
+        progress: 0,
+        message: '旅文發布中…',
+        cancel: cancelJob
+      });
 
-      if (publishCancelledRef.current || code === 'storage/canceled' || code === 'publish/cancelled') {
-        return;
+      try {
+        const attemptId = Date.now();
+
+        const uploadedMedia = await Promise.all(
+          mediaToPublish.map(async (item, index) => {
+            const sanitizedName = item.file.name
+              .replace(/[^a-zA-Z0-9._-]+/g, '-')
+              .slice(-80);
+
+            const mediaRef = storageRef(
+              storage,
+              `bar-posts/${currentUserId}/${postRef.id}/${attemptId}-${String(index + 1).padStart(2, '0')}-${sanitizedName}`
+            );
+            uploadedRefs.push(mediaRef);
+
+            const uploadTask = uploadBytesResumable(mediaRef, item.file, {
+              contentType: item.file.type,
+              customMetadata: {
+                ownerId: currentUserId,
+                postId: postRef.id,
+                safetyStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved'
+              }
+            });
+
+            jobState.tasks.push(uploadTask);
+            progressByItem.set(item.id, 0);
+
+            const timeoutMs = item.type === 'video' ? 300_000 : 120_000;
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+            try {
+              await Promise.race([
+                new Promise<void>((resolve, reject) => {
+                  uploadTask.on(
+                    'state_changed',
+                    snapshot => {
+                      const itemProgress =
+                        snapshot.totalBytes > 0
+                          ? snapshot.bytesTransferred / snapshot.totalBytes
+                          : 0;
+                      progressByItem.set(item.id, itemProgress);
+
+                      const values = Array.from(progressByItem.values());
+                      const average =
+                        values.length > 0
+                          ? values.reduce((sum, value) => sum + value, 0) / values.length
+                          : 0;
+
+                      emitPublishStatus({
+                        id: jobId,
+                        status: 'publishing',
+                        progress: Math.max(0, Math.min(99, Math.round(average * 100))),
+                        message: '旅文發布中…',
+                        cancel: cancelJob
+                      });
+                    },
+                    reject,
+                    () => resolve()
+                  );
+                }),
+                new Promise<void>((_, reject) => {
+                  timeoutId = setTimeout(() => {
+                    try {
+                      uploadTask.cancel();
+                    } catch {
+                      // Ignore cancellation races.
+                    }
+                    const timeoutError: any = new Error('MEDIA_UPLOAD_TIMEOUT');
+                    timeoutError.code = 'storage/retry-limit-exceeded';
+                    reject(timeoutError);
+                  }, timeoutMs);
+                })
+              ]);
+            } finally {
+              if (timeoutId) clearTimeout(timeoutId);
+              jobState.tasks = jobState.tasks.filter(task => task !== uploadTask);
+            }
+
+            if (jobState.cancelled) {
+              const cancelledError: any = new Error('PUBLISH_CANCELLED');
+              cancelledError.code = 'publish/cancelled';
+              throw cancelledError;
+            }
+
+            const url = await getDownloadURL(mediaRef);
+            return {
+              type: item.type,
+              url,
+              ...(item.type === 'video' && item.duration
+                ? { duration: Math.round(item.duration * 10) / 10 }
+                : {})
+            };
+          })
+        );
+
+        if (jobState.cancelled) {
+          const cancelledError: any = new Error('PUBLISH_CANCELLED');
+          cancelledError.code = 'publish/cancelled';
+          throw cancelledError;
+        }
+
+        const imageUrls = uploadedMedia
+          .filter(item => item.type === 'image')
+          .map(item => item.url);
+
+        await setDoc(postRef, {
+          authorId: currentUserId,
+          content,
+          tags: tags.length > 0 ? tags : [],
+          mentionedUsers: mentionedUserIds,
+          media: uploadedMedia,
+          images: imageUrls,
+          imageUrl: imageUrls[0] || '',
+          moderationStatus: MEDIA_UPLOAD_DIAGNOSTIC_MODE ? 'disabled' : 'approved',
+          likesCount: 0,
+          commentsCount: 0,
+          favoritesCount: 0,
+          createdAt: serverTimestamp()
+        });
+
+        if (jobState.cancelled) {
+          await deleteDoc(postRef).catch(() => {});
+          const cancelledError: any = new Error('PUBLISH_CANCELLED');
+          cancelledError.code = 'publish/cancelled';
+          throw cancelledError;
+        }
+
+        for (const targetUser of mentionedProfiles) {
+          if (targetUser.uid !== currentUserId) {
+            try {
+              await addDoc(collection(db, 'notifications'), {
+                type: 'post_mention',
+                fromId: currentUserId,
+                toId: targetUser.uid,
+                postId: postRef.id,
+                postSnippet: content.slice(0, 60),
+                postImage: imageUrls[0] || '',
+                status: 'pending',
+                createdAt: serverTimestamp()
+              });
+            } catch (notificationError) {
+              console.warn('Failed to send mention notification:', notificationError);
+            }
+          }
+        }
+
+        delete backgroundPublishJobsRef.current[jobId];
+        emitPublishStatus({
+          id: jobId,
+          status: 'published',
+          progress: 100,
+          message: '旅文已發布'
+        });
+      } catch (error: any) {
+        jobState.tasks.forEach(task => {
+          try {
+            task.cancel();
+          } catch {
+            // Ignore cancellation races.
+          }
+        });
+        jobState.tasks = [];
+
+        // Old attempt files use an attempt-specific path, so cleanup cannot
+        // accidentally delete a later retry.
+        void Promise.allSettled(uploadedRefs.map(mediaRef => deleteObject(mediaRef)));
+
+        const code = String(error?.code || '');
+        if (jobState.cancelled || code === 'storage/canceled' || code === 'publish/cancelled') {
+          delete backgroundPublishJobsRef.current[jobId];
+          emitPublishStatus({
+            id: jobId,
+            status: 'cancelled',
+            message: '已取消發布'
+          });
+          return;
+        }
+
+        console.error('Travel Bar background publish failed:', error);
+
+        let message = '發布失敗，請稍後再試';
+        if (code === 'storage/unauthorized') {
+          message = '發布失敗：Firebase Storage 權限未開啟';
+        } else if (code === 'storage/bucket-not-found') {
+          message = '發布失敗：找不到 Firebase Storage';
+        } else if (code === 'storage/quota-exceeded') {
+          message = '發布失敗：Firebase Storage 額度已滿';
+        } else if (code === 'storage/retry-limit-exceeded') {
+          message = '發布逾時，請點此重試';
+        }
+
+        const retry = () => {
+          void runJob();
+        };
+
+        emitPublishStatus({
+          id: jobId,
+          status: 'failed',
+          message,
+          retry
+        });
       }
+    };
 
-      console.error('Travel Bar media publish failed:', error);
-
-      let message = '貼文發佈失敗，請稍後再試。';
-
-      if (code === 'storage/unauthorized') {
-        message = '照片／影片上傳權限尚未開啟，請確認 Firebase Storage Rules 已發布。';
-      } else if (code === 'storage/bucket-not-found') {
-        message = '找不到 Firebase Storage 儲存空間，請確認 Storage 已在 Firebase 專案中啟用。';
-      } else if (code === 'storage/quota-exceeded') {
-        message = 'Firebase Storage 儲存額度已達上限。';
-      } else if (code === 'storage/retry-limit-exceeded') {
-        message = '照片／影片上傳逾時，已停止本次發佈。請確認網路與 Firebase Storage 後再試一次。';
-      } else if (code.startsWith('storage/')) {
-        message = `照片／影片上傳失敗（${code}）。`;
-      }
-
-      window.alert(message);
-    } finally {
-      activeUploadTasksRef.current = [];
-      setIsSubmitting(false);
-    }
+    void runJob();
   };
 
   const handleAction = async (post: BarPost, action: '點讚' | '收藏' | '不感興趣' | '檢舉') => {
