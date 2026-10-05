@@ -717,13 +717,29 @@ ${text}`;
         translated
       });
     } catch (error: any) {
+      const status = Number(error?.status || 0);
+      const message = String(error?.message || error || '');
+      const billingExhausted =
+        status === 402 ||
+        message.includes('prepayment credits are depleted') ||
+        message.includes('RESOURCE_EXHAUSTED');
+
+      if (billingExhausted) {
+        console.warn('Translation temporarily unavailable: Gemini billing credits are exhausted.');
+        return res.status(402).json({
+          error: 'translation billing exhausted',
+          code: 'BILLING_EXHAUSTED'
+        });
+      }
+
       console.error('Error in /api/translate/text:', error);
       return res.status(503).json({
         error: 'translation unavailable',
+        code: 'TRANSLATION_UNAVAILABLE',
         details:
           process.env.NODE_ENV === 'production'
             ? undefined
-            : String(error?.message || error || '')
+            : message
       });
     }
   });
