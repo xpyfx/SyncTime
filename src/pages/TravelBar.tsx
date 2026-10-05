@@ -674,10 +674,6 @@ export const TravelBarView: React.FC<{
           throw cancelledError;
         }
 
-        const imageUrls = uploadedMedia
-          .filter(item => item.type === 'image')
-          .map(item => item.url);
-
         await setDoc(postRef, {
           authorId: currentUserId,
           content,
