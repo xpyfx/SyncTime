@@ -474,8 +474,9 @@ const AppContent = () => {
           initialRoomId={selectedChatRoomId} 
           onAvatarClick={setSelectedUserId} 
           onBackToTrip={(tid) => {
+            // Keep the current chat room mounted behind the trip detail overlay.
+            // Closing the trip detail then returns to the exact same conversation.
             setSelectedTripId(tid);
-            setSelectedChatRoomId(null);
           }}
           onNavigateToPost={(postId) => {
             setSelectedChatRoomId(null);
