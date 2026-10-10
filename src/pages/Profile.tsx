@@ -1661,7 +1661,7 @@ export const ProfilePage: React.FC<{
   return (
     <div className="flex flex-col min-h-screen bg-apple-gray-50 overflow-x-hidden touch-pan-y">
       {/* Top Action Icons - Sticky with iPhone Safe Area Inset and Comfort Margin */}
-      <div className="sticky top-0 left-0 right-0 z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 flex items-center justify-between pointer-events-none bg-apple-gray-50/90 backdrop-blur-md transition-all">
+      <div className="sticky top-0 left-0 right-0 z-20 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 flex items-center justify-between pointer-events-none bg-apple-gray-50/90 backdrop-blur-md transition-all">
         {onBack ? (
           <button 
             onClick={onBack}
@@ -1790,7 +1790,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overscroll-none"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <h2 className="text-lg font-bold text-apple-gray-900">{t('settings.title')}</h2>
               <button onClick={() => setShowSettings(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">{t('settings.done')}</button>
             </div>
@@ -2102,7 +2102,7 @@ export const ProfilePage: React.FC<{
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             className="fixed inset-0 z-[210] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <div className="flex items-center gap-3">
                 <button onClick={() => setShowGestureSettings(false)} className="p-2 -ml-2 text-apple-gray-400 active:scale-95 transition-transform" aria-label="返回">
                   <ChevronRight size={24} className="rotate-180" />
@@ -2175,7 +2175,7 @@ export const ProfilePage: React.FC<{
                   initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                   className="fixed inset-0 z-[220] bg-apple-gray-50 flex flex-col"
                 >
-                  <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+                  <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setGestureSubMenu(null)} className="p-2 -ml-2 text-apple-gray-400 active:scale-95 transition-transform" aria-label="返回">
                         <ChevronRight size={24} className="rotate-180" />
@@ -2233,7 +2233,7 @@ export const ProfilePage: React.FC<{
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
               <h2 className="text-lg font-bold text-apple-gray-900">修改護照資料</h2>
               <button 
                 type="button"
@@ -2497,7 +2497,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-50 bg-white shrink-0">
               <h2 className="text-lg font-bold">好友申請</h2>
               <button onClick={() => setShowRequests(false)} className="text-apple-gray-600 font-Semibold px-2 py-1">關閉</button>
             </div>
@@ -2656,7 +2656,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[200] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <h2 className="text-lg font-bold text-apple-gray-900">我的好友</h2>
               <button onClick={() => setShowFriends(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
@@ -2694,7 +2694,7 @@ export const ProfilePage: React.FC<{
             exit={{ y: '100%' }}
             className="fixed inset-0 z-[210] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <h2 className="text-lg font-bold text-apple-gray-900">封鎖名單</h2>
               <button onClick={() => setShowBlocklist(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
@@ -3267,11 +3267,11 @@ export const ProfilePage: React.FC<{
           <div className="mt-8 border-b border-apple-gray-100 px-4">
             <div className="flex justify-between relative px-2">
               {[
-                { id: 'trips', label: `旅程 (${isPassportExpired ? 0 : myTrips.filter(t => !isUserBlocked(t.authorId)).length})` },
-                { id: 'saved', label: `收藏 (${isPassportExpired ? 0 : savedTrips.filter(t => !isUserBlocked(t.authorId)).length + savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length})` },
-                { id: 'friends', label: `好友 (${isPassportExpired ? 0 : firendsList.filter(friend => !isUserBlocked(friend.uid)).length})` },
-                { id: 'posts', label: `發佈 (${isPassportExpired ? 0 : postsCount})` },
-                { id: 'about', label: '關於' }
+                { id: 'trips', label: `${language === 'en' ? 'Trips' : '旅程'} (${isPassportExpired ? 0 : myTrips.filter(t => !isUserBlocked(t.authorId)).length})` },
+                { id: 'saved', label: `${language === 'en' ? 'Saved' : '收藏'} (${isPassportExpired ? 0 : savedTrips.filter(t => !isUserBlocked(t.authorId)).length + savedBarPosts.filter(post => !isUserBlocked(post.authorId)).length})` },
+                { id: 'friends', label: `${language === 'en' ? 'Friends' : '好友'} (${isPassportExpired ? 0 : firendsList.filter(friend => !isUserBlocked(friend.uid)).length})` },
+                { id: 'posts', label: `${language === 'en' ? 'Posts' : '發佈'} (${isPassportExpired ? 0 : postsCount})` },
+                { id: 'about', label: language === 'en' ? 'About' : '關於' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -3303,7 +3303,7 @@ export const ProfilePage: React.FC<{
                   onClick={() => setTripTab(tab)}
                   className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all ${tripTab === tab ? 'bg-white shadow-apple-xs text-apple-gray-900' : 'text-apple-gray-300'}`}
                 >
-                  {tab === 'ongoing' ? '進行中' : tab === 'upcoming' ? '即將到來' : '已結束'}
+                  {tab === 'ongoing' ? (language === 'en' ? 'Ongoing' : '進行中') : tab === 'upcoming' ? (language === 'en' ? 'Upcoming' : '即將到來') : (language === 'en' ? 'Past' : '已結束')}
                 </button>
               ))}
             </div>
@@ -3311,7 +3311,7 @@ export const ProfilePage: React.FC<{
             {/* Search Bar */}
             <div className="mb-4">
               <GlassSearchInput 
-                placeholder="搜尋國家、城市、旅伴..."
+                placeholder={language === 'en' ? 'Search country, city, travel buddy...' : '搜尋國家、城市、旅伴...'}
                 value={tripsSearch}
                 onChange={e => setTripsSearch(e.target.value)}
                 onClear={() => setTripsSearch('')}
@@ -4087,7 +4087,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[250] bg-white flex flex-col"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-4 flex items-center justify-between border-b border-apple-gray-100 bg-white shrink-0 shadow-2xs z-10">
               <div className="flex items-center gap-2">
                 <Globe size={20} className="text-apple-blue" />
                 <h2 className="text-lg font-bold text-apple-gray-900">旅遊足跡</h2>
@@ -4234,7 +4234,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold">我的旅程</h2>
               <button onClick={() => setShowMyTrips(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
@@ -4295,7 +4295,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto w-full overflow-x-hidden"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold text-apple-gray-900 border-none">收藏</h2>
               <button onClick={() => setShowSaved(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>
@@ -4346,7 +4346,7 @@ export const ProfilePage: React.FC<{
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="fixed inset-0 z-[210] bg-white flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
           >
-            <div className="px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
+            <div className="px-5 pt-[env(safe-area-inset-top,0px)] pb-3 flex items-center justify-between bg-white shrink-0 border-b border-apple-gray-50 z-10">
               <h2 className="text-lg font-bold text-apple-gray-900 border-none">隱藏的貼文</h2>
               <button onClick={() => setShowHiddenPosts(false)} className="text-apple-blue font-semibold px-2 py-1 active:opacity-60 transition-opacity">完成</button>
             </div>

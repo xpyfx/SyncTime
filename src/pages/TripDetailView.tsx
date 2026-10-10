@@ -882,7 +882,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
   if (isUserBlocked(trip.authorId)) {
     return (
       <div className="flex flex-col min-h-screen bg-apple-gray-50">
-        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 border-b border-apple-gray-100 flex items-center">
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-5 pt-[env(safe-area-inset-top,0px)] pb-3 border-b border-apple-gray-100 flex items-center">
           <button onClick={onBack} className="p-2 -ml-2 text-apple-gray-900 active:scale-90 transition-transform cursor-pointer">
             <ArrowLeft size={22} />
           </button>
@@ -1035,7 +1035,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       <div className={`flex-1 overflow-y-auto pb-32 ${isInactive ? 'grayscale-[0.2]' : ''}`}>
         {/* Header */}
-        <div className="sticky top-0 bg-white/85 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 flex items-center justify-between border-b border-apple-gray-100/50">
+        <div className="sticky top-0 bg-white/85 backdrop-blur-xl z-20 px-5 pt-[env(safe-area-inset-top,0px)] pb-3 flex items-center justify-between border-b border-apple-gray-100/50">
           <button 
             onClick={onBack} 
             className="w-10 h-10 -ml-1 flex items-center justify-center rounded-full text-apple-gray-600 hover:text-apple-gray-900 active:scale-90 transition-transform cursor-pointer"
@@ -1461,7 +1461,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
         {showMemberManager && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="fixed inset-0 z-[100] bg-white pt-[max(env(safe-area-inset-top,0px),48px)] overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-white pt-[env(safe-area-inset-top,0px)] overflow-y-auto"
           >
             <div className="px-5 flex items-center justify-between mb-4 border-b border-apple-gray-50 pb-4 bg-white sticky top-0">
               <h2 className="text-lg font-bold">旅程成員</h2>
@@ -1634,7 +1634,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId, onBack, 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed inset-0 z-[300] bg-white overflow-y-auto pt-[max(env(safe-area-inset-top,0px),48px)] pb-10 px-5 sm:px-6 max-w-2xl mx-auto flex flex-col"
+            className="fixed inset-0 z-[300] bg-white overflow-y-auto pt-[env(safe-area-inset-top,0px)] pb-10 px-5 sm:px-6 max-w-2xl mx-auto flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-apple-gray-100 pb-4 sticky top-0 bg-white/90 backdrop-blur-md z-10">
@@ -1971,7 +1971,7 @@ const ItineraryManager: React.FC<ItineraryManagerProps> = ({ isOpen, onClose, tr
       className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden shadow-2xl"
     >
       {/* Pinned non-scrolling Header */}
-      <header className="shrink-0 w-full px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3.5 flex items-center justify-between border-b border-apple-gray-100 bg-white shadow-2xs z-20">
+      <header className="shrink-0 w-full px-5 pt-[env(safe-area-inset-top,0px)] pb-3.5 flex items-center justify-between border-b border-apple-gray-100 bg-white shadow-2xs z-20">
         <h2 className="text-lg font-bold text-apple-gray-900">行程安排設定</h2>
         <div className="flex items-center gap-3">
           <button 

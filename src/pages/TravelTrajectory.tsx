@@ -817,7 +817,7 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
     <div className="fixed inset-0 z-50 bg-[#f4f3eb] flex flex-col overflow-hidden text-apple-gray-800">
       
       {/* 1. Header Navigation Bar */}
-      <div className="pt-[max(env(safe-area-inset-top,0px),48px)] pb-2.5 bg-white border-b border-apple-gray-100 px-4 sm:px-5 flex items-center justify-between relative shadow-sm shrink-0">
+      <div className="pt-[env(safe-area-inset-top,0px)] pb-2.5 bg-white border-b border-apple-gray-100 px-4 sm:px-5 flex items-center justify-between relative shadow-sm shrink-0">
         <button 
           onClick={onClose}
           className="w-10 h-10 flex items-center justify-center rounded-full text-apple-gray-600 hover:bg-apple-gray-50 active:scale-90 transition-all outline-none cursor-pointer"

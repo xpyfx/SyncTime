@@ -433,7 +433,7 @@ export const CreateTripView: React.FC<{ onCancel: () => void, editingTrip?: Trip
       <div className="fixed bottom-10 left-1/3 w-80 h-80 rounded-full bg-[#035096]/15 blur-3xl pointer-events-none" />
 
       {/* Permanently Pinned Header Bar (Supports Dynamic Island & Safe Area) */}
-      <header className="shrink-0 w-full bg-white/85 backdrop-blur-2xl z-30 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 px-5 sm:px-6 border-b border-white/80 shadow-[0_4px_24px_rgba(3,80,150,0.06)] flex items-center justify-between gap-3">
+      <header className="shrink-0 w-full bg-white/85 backdrop-blur-2xl z-30 pt-[env(safe-area-inset-top,0px)] pb-3 px-5 sm:px-6 border-b border-white/80 shadow-[0_4px_24px_rgba(3,80,150,0.06)] flex items-center justify-between gap-3">
         <button 
           type="button"
           onClick={onCancel} 

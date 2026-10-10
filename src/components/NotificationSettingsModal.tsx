@@ -251,7 +251,7 @@ export const NotificationSettingsModal: React.FC<
 
   return (
     <div className="fixed inset-0 z-[500] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full">
-      <div className="px-4 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 bg-white border-b border-apple-gray-100 shrink-0">
+      <div className="px-4 pt-[env(safe-area-inset-top,0px)] pb-3 bg-white border-b border-apple-gray-100 shrink-0">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"

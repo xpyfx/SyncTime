@@ -35,7 +35,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
       className="fixed inset-0 z-[220] bg-apple-gray-50 flex flex-col max-w-md mx-auto w-full overscroll-none shadow-2xl"
     >
       {/* Header */}
-      <div className="px-4 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 bg-white border-b border-apple-gray-100 shrink-0 flex items-center justify-between shadow-2xs z-10">
+      <div className="px-4 pt-[env(safe-area-inset-top,0px)] pb-3 bg-white border-b border-apple-gray-100 shrink-0 flex items-center justify-between shadow-2xs z-10">
         <div className="flex items-center gap-2">
           <button
             type="button"

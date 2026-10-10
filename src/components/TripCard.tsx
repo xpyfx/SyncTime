@@ -6,23 +6,51 @@ import { doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, collection
 import { useAuth } from '../context/AuthContext';
 import { OfficialBadge } from './OfficialBadge';
 import { useLanguage } from '../context/LanguageContext';
-import { useUserDirectory } from '../context/UserDirectoryContext';
+
+import { formatCountryName } from '../lib/countryTranslation';
 
 interface TripCardProps {
   trip: Trip;
+  author?: UserProfile | null;
+  authorLoaded?: boolean;
   onClick?: () => void;
   onAvatarClick?: (userId: string) => void;
   onCommentClick?: (e: any) => void;
   onSaveToggle?: () => void;
 }
 
-export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick, onCommentClick, onSaveToggle }) => {
+export const TripCard: React.FC<TripCardProps> = ({ 
+  trip, 
+  author: propAuthor, 
+  authorLoaded: propAuthorLoaded, 
+  onClick, 
+  onAvatarClick, 
+  onCommentClick, 
+  onSaveToggle 
+}) => {
   const { user } = useAuth();
   const { language } = useLanguage();
-  const { profiles, loaded: authorDirectoryLoaded } = useUserDirectory();
-  const author = profiles[trip.authorId];
-  const authorLoaded = authorDirectoryLoaded;
+  const [internalAuthor, setInternalAuthor] = useState<UserProfile | null>(null);
+  const [internalAuthorLoaded, setInternalAuthorLoaded] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  const hasPropAuthor = propAuthorLoaded !== undefined;
+  const author = hasPropAuthor ? propAuthor : internalAuthor;
+  const authorLoaded = hasPropAuthor ? propAuthorLoaded : internalAuthorLoaded;
+
+  useEffect(() => {
+    if (hasPropAuthor) return;
+    setInternalAuthor(null);
+    setInternalAuthorLoaded(false);
+
+    getDoc(doc(db, 'users', trip.authorId))
+      .then(s => {
+        if (s.exists()) {
+          setInternalAuthor(s.data() as UserProfile);
+        }
+      })
+      .finally(() => setInternalAuthorLoaded(true));
+  }, [hasPropAuthor, trip.authorId]);
 
   useEffect(() => {
     if (!user) return;
@@ -100,8 +128,12 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
 
       <div className="space-y-4">
         <div className="space-y-0.5">
-          <h1 className="text-3xl font-bold tracking-tight text-apple-gray-600">{trip.country}</h1>
-          <h2 className="text-lg text-apple-gray-300 font-medium">{trip.cities.join('、 ')}</h2>
+          <h1 className="text-3xl font-bold tracking-tight text-apple-gray-600">
+            {formatCountryName(trip.country, language)}
+          </h1>
+          <h2 className="text-lg text-apple-gray-300 font-medium">
+            {trip.cities.join(language === 'en' ? ', ' : '、 ')}
+          </h2>
           <div className="flex items-center gap-1.5 text-apple-gray-600 mt-1">
              <Calendar size={12} strokeWidth={2.5} />
              <h3 className="text-xs font-bold">
@@ -124,7 +156,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onClick, onAvatarClick
           </span>
           {trip.isFriendsOnly && (
             <span className="px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-bold">
-              僅限好友
+              {language === 'en' ? 'Friends only' : '僅限好友'}
             </span>
           )}
           <span className="px-2.5 py-1 bg-apple-gray-50 text-apple-gray-600 rounded-lg text-[10px] font-bold">

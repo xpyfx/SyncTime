@@ -397,6 +397,28 @@ export const WarmTooltipGroup = forwardRef(function WarmTooltipGroup(
   );
 });
 
+export interface WarmTooltipProps {
+  content?: any;
+  shortcut?: any;
+  children: any;
+  side?: string;
+  delay?: number;
+  warmWindow?: number;
+  surfaceColor?: string;
+  inkColor?: string;
+  size?: string;
+  radius?: number;
+  gap?: number;
+  arrow?: boolean;
+  popDuration?: number;
+  popScale?: number;
+  popBlur?: number;
+  showFuse?: boolean;
+  longPress?: number;
+  disabled?: boolean;
+  className?: string;
+}
+
 function Trigger({
   content,
   shortcut,
@@ -417,7 +439,7 @@ function Trigger({
   longPress,
   disabled,
   className
-}) {
+}: WarmTooltipProps) {
   const group = useContext(GroupContext);
   const id = useId();
   const triggerRef = useRef(null);
@@ -613,7 +635,7 @@ export default function WarmTooltip({
   longPress = 500,
   disabled = false,
   className = ''
-}) {
+}: WarmTooltipProps) {
   const context = useContext(GroupContext);
   const props = {
     content,

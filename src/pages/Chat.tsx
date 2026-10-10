@@ -12,6 +12,7 @@ import { GoogleMapsLocationCard } from '../components/GoogleMapsLocationCard';
 import { SharedBarPostCard } from '../components/SharedBarPostCard';
 import { SharedTripCard } from '../components/SharedTripCard';
 import { TranslatedUserText } from '../components/TranslatedUserText';
+import { useLanguage } from '../context/LanguageContext';
 
 const makeDeletedUserProfile = (uid: string): UserProfile => ({
   uid,
@@ -219,6 +220,7 @@ interface ChatRoomItemProps {
 
 const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
   const { user, isUserBlocked } = useAuth();
+  const { language } = useLanguage();
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [tripEndDate, setTripEndDate] = useState<string | undefined>(undefined);
   const isGroup = room.type === 'group';
@@ -293,7 +295,7 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         <div className="flex items-center gap-1.5 min-w-0 mb-1">
           <h3 className="font-semibold text-sm text-apple-gray-900 truncate min-w-0">
-            {isGroup ? room.name : (otherUser?.displayName || '載入中...')}
+            {isGroup ? room.name : (otherUser?.displayName || (language === 'en' ? 'Loading…' : '載入中...'))}
           </h3>
           {isGroup && tripEndDate && (
             <CountdownBadge 
@@ -304,7 +306,9 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
           )}
         </div>
         <p className="text-xs text-apple-gray-400 truncate font-light leading-snug">
-          {hasBlockedParticipant ? '開啟群組查看可見訊息' : (room.lastMessage || '尚無訊息')}
+          {hasBlockedParticipant 
+            ? (language === 'en' ? 'Open group to view visible messages' : '開啟群組查看可見訊息') 
+            : (room.lastMessage || (language === 'en' ? 'No messages yet' : '尚無訊息'))}
         </p>
       </div>
 
@@ -3693,7 +3697,7 @@ React.useLayoutEffect(() => {
 
   return (
     <div className="fixed inset-0 z-[110] bg-white flex flex-col h-[100dvh] w-full overflow-hidden">
-      <div className="px-4 sm:px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 border-b border-apple-gray-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
+      <div className="px-4 sm:px-5 pt-[env(safe-area-inset-top,0px)] pb-3 border-b border-apple-gray-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
           <button onClick={handleBackClick} className="w-10 h-10 -ml-1 flex items-center justify-center active:scale-90 transition-transform text-apple-gray-600 hover:text-apple-gray-900 cursor-pointer flex-shrink-0 rounded-full" aria-label="返回">
             <ArrowLeft size={22} />
@@ -6160,6 +6164,7 @@ export const ChatPage: React.FC<{
   onNavigateToPost?: (postId: string) => void 
 }> = ({ initialRoomId, onAvatarClick, onBackToTrip, onNavigateToPost }) => {
   const { user, profile, isUserBlocked } = useAuth();
+  const { language, t } = useLanguage();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId);
   const [activeTab, setActiveTab] = useState<'friends' | 'chat' | 'group'>('chat');
@@ -6376,7 +6381,7 @@ export const ChatPage: React.FC<{
       {/* Search Modal */}
       <AnimatePresence>
         {showSearch && (
-          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="fixed inset-0 z-[100] bg-white pt-[max(env(safe-area-inset-top,0px),48px)]">
+          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="fixed inset-0 z-[100] bg-white pt-[env(safe-area-inset-top,0px)]">
             <div className="px-5 flex items-center justify-between mb-4 border-b border-apple-gray-100 pb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-[#B6cada]/40 flex items-center justify-center text-[#035096]">
@@ -6439,14 +6444,14 @@ export const ChatPage: React.FC<{
       </AnimatePresence>
 
       {/* Header and Capsule Pill Switcher */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-3 border-b border-apple-gray-50">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-3 border-b border-apple-gray-50">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-black tracking-tight text-apple-gray-900">聊天室</h1>
+          <h1 className="text-2xl font-black tracking-tight text-apple-gray-900">{t('nav.chat')}</h1>
           <button 
             onClick={() => setShowSearch(true)} 
             className="w-11 h-11 rounded-full flex items-center justify-center text-apple-blue hover:bg-apple-blue/5 active:scale-90 transition-transform cursor-pointer"
-            title="新增好友"
-            aria-label="新增好友"
+            title={language === 'en' ? 'Add Friend' : '新增好友'}
+            aria-label={language === 'en' ? 'Add Friend' : '新增好友'}
           >
             <UserPlus size={22} strokeWidth={2.5} />
           </button>
@@ -6464,7 +6469,7 @@ export const ChatPage: React.FC<{
                   : 'text-apple-gray-500 hover:text-apple-gray-800'
               }`}
             >
-              好友
+              {language === 'en' ? 'Friends' : '好友'}
             </button>
 
             <button
@@ -6476,7 +6481,7 @@ export const ChatPage: React.FC<{
                   : 'text-apple-gray-500 hover:text-apple-gray-800'
               }`}
             >
-              聊天
+              {language === 'en' ? 'Direct' : '聊天'}
             </button>
 
             <button
@@ -6488,7 +6493,7 @@ export const ChatPage: React.FC<{
                   : 'text-apple-gray-500 hover:text-apple-gray-800'
               }`}
             >
-              群組
+              {language === 'en' ? 'Groups' : '群組'}
             </button>
           </div>
         </div>
@@ -6500,9 +6505,11 @@ export const ChatPage: React.FC<{
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={
-            activeTab === 'friends' ? '搜尋好友名稱或 @username' :
-            activeTab === 'chat' ? '搜尋好友或聊天記錄' :
-            '搜尋旅友群組記錄'
+            activeTab === 'friends' 
+              ? (language === 'en' ? 'Search friends or @username' : '搜尋好友名稱或 @username') 
+              : activeTab === 'chat' 
+              ? (language === 'en' ? 'Search friends or messages' : '搜尋好友或聊天記錄') 
+              : (language === 'en' ? 'Search group chat history' : '搜尋旅友群組記錄')
           }
           onClear={() => setSearchQuery('')}
         />
@@ -6554,13 +6561,15 @@ export const ChatPage: React.FC<{
                     className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E6F5FF] text-[#0081d1] hover:bg-[#D4EDFF] rounded-full text-xs font-bold active:scale-95 transition-all flex-shrink-0 ml-2 shadow-2xs"
                   >
                     <MessageCircle size={14} />
-                    <span>對話</span>
+                    <span>{language === 'en' ? 'Chat' : '對話'}</span>
                   </button>
                 </div>
               ))
             ) : (
               <div className="py-20 text-center text-apple-gray-300 font-light text-sm">
-                {searchQuery ? '找不到符合條件的好友' : '尚無好友資料'}
+                {searchQuery 
+                  ? (language === 'en' ? 'No matching friends found' : '找不到符合條件的好友') 
+                  : (language === 'en' ? 'No friends yet' : '尚無好友資料')}
               </div>
             )}
           </div>
@@ -6574,7 +6583,9 @@ export const ChatPage: React.FC<{
               ))
             ) : (
               <div className="py-20 text-center text-apple-gray-300 font-light text-sm">
-                {searchQuery ? '找不到符合條件的對話' : '尚無個人對話記錄'}
+                {searchQuery 
+                  ? (language === 'en' ? 'No matching conversations' : '找不到符合條件的對話') 
+                  : (language === 'en' ? 'No conversations yet' : '尚無個人對話記錄')}
               </div>
             )}
           </div>
@@ -6588,7 +6599,9 @@ export const ChatPage: React.FC<{
               ))
             ) : (
               <div className="py-20 text-center text-apple-gray-300 font-light text-sm">
-                {searchQuery ? '找不到符合條件的群組記錄' : '尚無群組對話記錄'}
+                {searchQuery 
+                  ? (language === 'en' ? 'No matching group chats' : '找不到符合條件的群組記錄') 
+                  : (language === 'en' ? 'No group chats yet' : '尚無群組對話記錄')}
               </div>
             )}
           </div>

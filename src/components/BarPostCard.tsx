@@ -45,11 +45,11 @@ import { OfficialBadge } from './OfficialBadge';
 import { UserMentionPickerModal } from './UserMentionPickerModal';
 import { PulseLikeButton } from './PulseLikeButton';
 import { TranslatedUserText } from './TranslatedUserText';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BarPostCardProps {
   post: BarPost;
   author?: UserProfile;
-  authorLoaded?: boolean;
   onChatClick?: (roomId: string) => void;
   onAvatarClick?: (uid: string) => void;
   onReport?: (post: BarPost) => void;
@@ -82,6 +82,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
   mentionUsers
 }) => {
   const { user, isUserBlocked } = useAuth();
+  const { language, t } = useLanguage();
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
   const [showReplyInput, setShowReplyInput] = useState(false);
@@ -373,11 +374,11 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                 onClick={() => onAvatarClick?.(comment.authorId)}
                 className="font-bold text-[11px] text-apple-gray-900 text-left hover:text-[#035096] transition-colors cursor-pointer outline-none truncate inline-flex items-center gap-1"
               >
-                <span className="truncate">{commentAuthor?.displayName || '用戶'}</span>
+                <span className="truncate">{commentAuthor?.displayName || t('common.user')}</span>
                 <OfficialBadge profile={commentAuthor} size={11} />
               </button>
               <span className="text-[9px] text-apple-gray-400 font-medium shrink-0">
-                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : '剛剛'}
+                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : t('common.justNow')}
               </span>
             </div>
 
@@ -408,7 +409,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
               }`}
             >
               <ThumbsUp size={12} fill={isLiked ? "currentColor" : "none"} strokeWidth={2.2} />
-              <span>{likesCount > 0 ? `${likesCount} 讚` : '讚'}</span>
+              <span>{likesCount > 0 ? `${likesCount} ${language === 'en' ? 'likes' : '讚'}` : t('common.like')}</span>
             </button>
 
             {/* Reply Button */}
@@ -418,7 +419,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
               className="flex items-center gap-1 font-semibold hover:text-[#035096] text-apple-gray-400 active:scale-95 transition-all"
             >
               <Reply size={12} strokeWidth={2.2} />
-              <span>回覆</span>
+              <span>{language === 'en' ? 'Reply' : '回覆'}</span>
             </button>
 
             {user?.uid === comment.authorId && (
@@ -428,7 +429,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                 className="flex items-center gap-1 font-semibold text-apple-gray-300 hover:text-red-500 active:scale-95 transition-all"
               >
                 <Trash2 size={11} />
-                <span>刪除</span>
+                <span>{t('common.delete')}</span>
               </button>
             )}
           </div>
@@ -468,17 +469,17 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                           onClick={() => onAvatarClick?.(r.authorId)}
                           className="font-bold text-[10px] text-apple-gray-800 hover:text-[#035096] transition-colors truncate inline-flex items-center gap-1"
                         >
-                          <span className="truncate">{replyAuthor?.displayName || '用戶'}</span>
+                          <span className="truncate">{replyAuthor?.displayName || t('common.user')}</span>
                           <OfficialBadge profile={replyAuthor} size={10} />
                         </button>
                         {r.replyToAuthorName && (
                           <span className="text-[9px] text-[#035096] font-medium shrink-0">
-                            回覆 @{r.replyToAuthorName}
+                            {language === 'en' ? `Replying to @${r.replyToAuthorName}` : `回覆 @${r.replyToAuthorName}`}
                           </span>
                         )}
                       </div>
                       <span className="text-[8.5px] text-apple-gray-300 shrink-0">
-                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '剛剛'}
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : t('common.justNow')}
                       </span>
                     </div>
 
@@ -507,7 +508,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                       }`}
                     >
                       <ThumbsUp size={10} fill={isReplyLiked ? "currentColor" : "none"} strokeWidth={2.2} />
-                      <span>{rLikesCount > 0 ? `${rLikesCount} 讚` : '讚'}</span>
+                      <span>{rLikesCount > 0 ? `${rLikesCount} ${language === 'en' ? 'likes' : '讚'}` : t('common.like')}</span>
                     </button>
 
                     {user?.uid === r.authorId && (
@@ -517,7 +518,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                         className="flex items-center gap-1 font-semibold text-apple-gray-300 hover:text-red-500 active:scale-95 transition-all"
                       >
                         <Trash2 size={10} />
-                        <span>刪除</span>
+                        <span>{t('common.delete')}</span>
                       </button>
                     )}
                   </div>
@@ -542,7 +543,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                 type="button"
                 onClick={() => setShowReplyMentionPicker(true)}
                 className="w-7 h-7 rounded-full bg-white border border-apple-gray-200 text-[#035096] font-black text-sm flex items-center justify-center shrink-0"
-                title="標註用戶"
+                title={language === 'en' ? 'Mention user' : '標註用戶'}
               >
                 @
               </button>
@@ -556,7 +557,7 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
                     handlePostReply();
                   }
                 }}
-                placeholder={`回覆 @${commentAuthor?.displayName || '用戶'}...`}
+                placeholder={language === 'en' ? `Reply to @${commentAuthor?.displayName || 'User'}...` : `回覆 @${commentAuthor?.displayName || '用戶'}...`}
                 className="flex-1 bg-transparent px-2 text-xs focus:outline-none text-apple-gray-800 placeholder:text-apple-gray-400 min-w-0"
               />
               <button
@@ -603,9 +604,8 @@ const BarCommentItem: React.FC<BarCommentItemProps> = ({
 };
 
 export const BarPostCard: React.FC<BarPostCardProps> = ({ 
-  post,
-  author,
-  authorLoaded = Boolean(author),
+  post, 
+  author, 
   onChatClick, 
   onAvatarClick, 
   onReport,
@@ -616,6 +616,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
   matchedTags
 }) => {
   const { user, isUserBlocked } = useAuth();
+  const { language, t } = useLanguage();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
@@ -950,9 +951,9 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
     }
   };
 
-  const isAuthorLoading = !authorLoaded && !author;
-  const isDeletedAuthor = authorLoaded && (!author || Boolean(author.isDeleted));
-  const isAuthor = user?.uid === post.authorId && !isDeletedAuthor;
+  const isLoadingAuthor = author === undefined;
+  const isDeletedAuthor = author === null || author?.isDeleted === true;
+  const isAuthor = user?.uid === post.authorId && !isDeletedAuthor && !isLoadingAuthor;
   const visibleComments = comments.filter(comment => !isUserBlocked(comment.authorId));
   const visibleMentionUsers = mentionUsers.filter(profile => !isUserBlocked(profile.uid));
 
@@ -982,7 +983,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               <img src={author.avatarUrl} alt={author.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-apple-gray-300 font-bold">
-                {isDeletedAuthor ? '—' : (author?.displayName?.[0] || (isAuthorLoading ? '' : '?'))}
+                {isLoadingAuthor ? '…' : isDeletedAuthor ? '—' : (author?.displayName?.[0] || '?')}
               </div>
             )}
           </div>
@@ -995,12 +996,20 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
             <div className="flex flex-col cursor-pointer hover:text-apple-blue transition-colors group min-w-0" onClick={() => onAvatarClick?.(post.authorId)}>
                <span className="font-bold text-sm tracking-tight group-hover:underline truncate inline-flex items-center gap-1">
                  <span className="truncate">
-                   {isDeletedAuthor ? '已註銷帳號' : (author?.displayName || (isAuthorLoading ? '載入中...' : '用戶'))}
+                   {isLoadingAuthor
+                     ? (language === 'en' ? 'Loading…' : '載入中...')
+                     : isDeletedAuthor 
+                     ? (language === 'en' ? 'Deleted account' : '已註銷帳號') 
+                     : (author?.displayName || (language === 'en' ? 'User' : '用戶'))}
                  </span>
-                 {!isDeletedAuthor && <OfficialBadge profile={author} size={13} />}
+                 {!isDeletedAuthor && !isLoadingAuthor && <OfficialBadge profile={author} size={13} />}
                </span>
                <span className="text-[10px] text-apple-gray-300 font-medium truncate">
-                 {isDeletedAuthor ? '帳號已刪除' : (author?.username ? `@${author.username}` : (isAuthorLoading ? '' : '@unknown'))}
+                 {isLoadingAuthor 
+                   ? '' 
+                   : isDeletedAuthor 
+                   ? (language === 'en' ? 'Account deleted' : '帳號已刪除') 
+                   : `@${author?.username || 'unknown'}`}
                </span>
             </div>
             
@@ -1023,8 +1032,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                 {post.createdAt ? (
                   typeof post.createdAt === 'string' 
                     ? new Date(post.createdAt).toLocaleDateString() 
-                    : (post.createdAt.toDate ? post.createdAt.toDate().toLocaleDateString() : '剛剛')
-                ) : '剛剛'}
+                    : (post.createdAt.toDate ? post.createdAt.toDate().toLocaleDateString() : t('common.justNow'))
+                ) : t('common.justNow')}
               </span>
 
               <AnimatePresence>
@@ -1044,7 +1053,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                     >
                       <Check size={10} strokeWidth={3} />
                     </motion.div>
-                    <span>已檢舉</span>
+                    <span>{t('common.reported')}</span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1073,13 +1082,13 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                               onClick={(e) => { e.stopPropagation(); setIsEditing(true); setShowMenu(false); }}
                               className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-apple-gray-600 active:bg-apple-gray-50 transition-colors"
                             >
-                              <Edit2 size={14} /> 編輯
+                              <Edit2 size={14} /> {t('common.edit')}
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                               className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-red-500 active:bg-apple-gray-50 border-t border-apple-gray-50 transition-colors"
                             >
-                              <Trash2 size={14} /> 刪除
+                              <Trash2 size={14} /> {t('common.delete')}
                             </button>
                           </>
                         ) : (
@@ -1107,11 +1116,11 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                                 >
                                   <Check size={11} strokeWidth={3} />
                                 </motion.div>
-                                <span>已檢舉</span>
+                                <span>{t('common.reported')}</span>
                               </motion.div>
                             ) : (
                               <>
-                                <ShieldAlert size={14} /> 檢舉
+                                <ShieldAlert size={14} /> {t('common.report')}
                               </>
                             )}
                           </button>
@@ -1149,8 +1158,8 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                 rows={3}
               />
               <div className="flex justify-end gap-2">
-                <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-apple-gray-300 px-3 py-1.5">取消</button>
-                <button onClick={handleUpdate} className="text-xs font-bold text-white bg-apple-blue px-3 py-1.5 rounded-lg shadow-sm">完成</button>
+                <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-apple-gray-300 px-3 py-1.5">{t('common.cancel')}</button>
+                <button onClick={handleUpdate} className="text-xs font-bold text-white bg-apple-blue px-3 py-1.5 rounded-lg shadow-sm">{t('common.done')}</button>
               </div>
             </div>
           ) : (
@@ -1227,7 +1236,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               onClick={handleToggleLike}
               className={isLiked ? 'text-apple-blue' : 'hover:text-apple-blue'}
               size={20}
-              label="點讚"
+              label={t('common.like')}
             />
             <button 
               onClick={() => setShowComments(!showComments)}
@@ -1247,7 +1256,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
               type="button"
               onClick={handleShareClick}
               className="flex items-center gap-1.5 active:scale-90 transition-transform hover:text-[#035096]"
-              title="分享這篇旅文至聊天室或複製專屬連結"
+              title={language === 'en' ? 'Share post or copy link' : '分享這篇旅文至聊天室或複製專屬連結'}
             >
               <Send size={20} strokeWidth={2} />
             </button>
@@ -1268,7 +1277,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                     type="button"
                     onClick={() => setShowCommentMentionPicker(true)}
                     className="w-10 h-10 rounded-full bg-apple-gray-50 ring-1 ring-inset ring-apple-gray-100 text-[#035096] font-black text-sm flex items-center justify-center shrink-0 active:scale-95 transition-transform"
-                    title="標註用戶"
+                    title={language === 'en' ? 'Mention user' : '標註用戶'}
                   >
                     @
                   </button>
@@ -1281,7 +1290,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                         handlePostComment();
                       }
                     }}
-                    placeholder="發表留言，可使用 @ 標註其他用戶..."
+                    placeholder={language === 'en' ? 'Write a comment, use @ to mention...' : '發表留言，可使用 @ 標註其他用戶...'}
                     className="flex-1 h-10 bg-apple-gray-50 rounded-full px-4 text-xs focus:outline-none ring-1 ring-inset ring-apple-gray-100 text-apple-gray-800 placeholder:text-apple-gray-400"
                   />
                   <GlassSendButton
@@ -1289,7 +1298,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                     onClick={handlePostComment}
                     disabled={!newComment.trim() || isPostingComment}
                     isSending={isPostingComment}
-                    title="發送留言"
+                    title={language === 'en' ? 'Send comment' : '發送留言'}
                     size="sm"
                   />
                 </div>
@@ -1312,7 +1321,7 @@ export const BarPostCard: React.FC<BarPostCardProps> = ({
                     ))
                   ) : (
                     <div className="py-6 text-center text-apple-gray-400 text-xs">
-                      尚無留言，來發表第一則評論吧！
+                      {language === 'en' ? 'No comments yet. Be the first to share your thoughts!' : '尚無留言，來發表第一則評論吧！'}
                     </div>
                   )}
                 </div>

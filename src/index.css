@@ -96,11 +96,11 @@ input, textarea, select {
 
 /* iOS Safe Area & Standard Mobile Grid Margin Helpers (Infinum / 8pt Grid Spec) */
 .safe-header-pt {
-  padding-top: max(env(safe-area-inset-top, 0px), 48px);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .safe-modal-header {
-  padding-top: max(env(safe-area-inset-top, 0px), 48px);
+  padding-top: env(safe-area-inset-top, 0px);
   padding-left: max(env(safe-area-inset-left, 0px), 20px);
   padding-right: max(env(safe-area-inset-right, 0px), 20px);
 }

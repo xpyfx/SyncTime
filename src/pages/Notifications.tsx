@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { Notification, UserProfile, Trip } from '../types';
 import { OfficialBadge } from '../components/OfficialBadge';
+import { useLanguage } from '../context/LanguageContext';
+import { formatCountryName } from '../lib/countryTranslation';
 
 interface NotificationsPageProps {
   onTripClick: (id: string) => void;
@@ -46,12 +48,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   onPostClick
 }) => {
   const { user, profile, blockedByUsers } = useAuth();
+  const { language, t } = useLanguage();
   const [notifications, setNotifications] = useState<(Notification & { fromProfile?: UserProfile, trip?: Trip })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessingAction, setIsProcessingAction] = useState<string | null>(null);
 
   const formatTimeAgo = (timestamp: any) => {
-    if (!timestamp) return '剛剛';
+    const isEn = language === 'en';
+    if (!timestamp) return isEn ? 'Just now' : '剛剛';
     let date: Date;
     if (timestamp.toDate) {
       date = timestamp.toDate();
@@ -60,17 +64,17 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     } else {
       date = new Date(timestamp);
     }
-    if (isNaN(date.getTime())) return '剛剛';
+    if (isNaN(date.getTime())) return isEn ? 'Just now' : '剛剛';
     const diffMs = Date.now() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return '剛剛';
-    if (diffMins < 60) return `${diffMins} 分鐘前`;
+    if (diffMins < 1) return isEn ? 'Just now' : '剛剛';
+    if (diffMins < 60) return isEn ? `${diffMins}m ago` : `${diffMins} 分鐘前`;
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} 小時前`;
+    if (diffHours < 24) return isEn ? `${diffHours}h ago` : `${diffHours} 小時前`;
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return '昨天';
-    if (diffDays < 7) return `${diffDays} 天前`;
-    return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+    if (diffDays === 1) return isEn ? 'Yesterday' : '昨天';
+    if (diffDays < 7) return isEn ? `${diffDays}d ago` : `${diffDays} 天前`;
+    return date.toLocaleDateString(isEn ? 'en-US' : 'zh-TW', { month: 'short', day: 'numeric' });
   };
 
   useEffect(() => {
@@ -344,19 +348,19 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-apple-gray-50 pt-[max(env(safe-area-inset-top,0px),48px)] pb-32">
+    <div className="flex flex-col min-h-screen bg-apple-gray-50 pt-[max(env(safe-area-inset-top,0px),12px)] pb-32">
       {/* Header */}
       <div className="px-5 mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">通知</h1>
-          <p className="text-xs text-apple-gray-600 mt-0.5">社交動態、簽證申請與旅程通知</p>
+          <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('notif.title')}</h1>
+          <p className="text-xs text-apple-gray-600 mt-0.5">{t('notif.subtitle')}</p>
         </div>
         {notifications.some(n => n.status === 'pending') && (
           <button
             onClick={handleMarkAllRead}
             className="text-xs font-semibold text-[#0081d1] hover:text-[#035096] transition-colors py-1.5 px-3 rounded-full hover:bg-white/80 active:scale-95"
           >
-            全部標為已讀
+            {t('notif.markAllRead')}
           </button>
         )}
       </div>
@@ -429,120 +433,138 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                         if (n.fromId) onUserClick(n.fromId);
                       }}
                     >
-                      <span>{n.fromProfile?.displayName || '用戶'}</span>
+                      <span>{n.fromProfile?.displayName || (language === 'en' ? 'User' : '用戶')}</span>
                       <OfficialBadge profile={n.fromProfile} size={11} />
                     </span>
 
                     {/* Friend Request */}
                     {n.type === 'friend_request' && (
                       <span className="text-apple-gray-700">
-                        {n.status === 'approved' 
-                          ? '申請添加為好友（已同意）'
-                          : n.status === 'rejected'
-                          ? '申請添加為好友（已刪除）'
-                          : '申請添加為你的好友'}
+                        {language === 'en'
+                          ? (n.status === 'approved' ? 'sent a friend request (accepted)' : n.status === 'rejected' ? 'sent a friend request (declined)' : 'sent you a friend request')
+                          : (n.status === 'approved' ? '申請添加為好友（已同意）' : n.status === 'rejected' ? '申請添加為好友（已刪除）' : '申請添加為你的好友')}
                       </span>
                     )}
 
                     {/* Friend Accepted */}
                     {n.type === 'friend_accepted' && (
                       <span className="text-apple-gray-700">
-                        接受了你的好友申請，你們現在已成為好友！
+                        {language === 'en'
+                          ? 'accepted your friend request. You are now friends!'
+                          : '接受了你的好友申請，你們現在已成為好友！'}
                       </span>
                     )}
 
                     {/* Trip Visa Application (Join Request) */}
                     {n.type === 'trip_join_request' && (
                       <span className="text-apple-gray-700">
-                        {n.status === 'approved' 
-                          ? `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（簽證已核准）`
-                          : n.status === 'rejected'
-                          ? `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（已婉拒）`
-                          : `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（要求加入旅程）`}
+                        {language === 'en'
+                          ? (n.status === 'approved'
+                              ? `applied for visa to your ${formatCountryName(n.trip?.country || '', 'en') || 'trip'} (approved)`
+                              : n.status === 'rejected'
+                              ? `applied for visa to your ${formatCountryName(n.trip?.country || '', 'en') || 'trip'} (declined)`
+                              : `applied for a visa to join your ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}`)
+                          : (n.status === 'approved'
+                              ? `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（簽證已核准）`
+                              : n.status === 'rejected'
+                              ? `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（已婉拒）`
+                              : `申請對你的 ${n.trip?.country || '旅程'} 投遞簽證申請（要求加入旅程）`)}
                       </span>
                     )}
 
                     {/* Trip Visa Approved */}
                     {n.type === 'trip_join_approved' && (
                       <span className="text-apple-gray-700">
-                        已核准你的簽證申請，歡迎加入 {n.trip?.country || '旅程'}！
+                        {language === 'en'
+                          ? `approved your visa application! Welcome to the ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}!`
+                          : `已核准你的簽證申請，歡迎加入 ${n.trip?.country || '旅程'}！`}
                       </span>
                     )}
 
                     {/* Trip Visa Rejected */}
                     {n.type === 'trip_join_rejected' && (
                       <span className="text-apple-gray-700">
-                        婉拒了你的 {n.trip?.country || '旅程'} 簽證申請。
+                        {language === 'en'
+                          ? `declined your visa application to ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}.`
+                          : `婉拒了你的 ${n.trip?.country || '旅程'} 簽證申請。`}
                       </span>
                     )}
 
                     {/* Post Liked */}
                     {n.type === 'post_like' && (
                       <span className="text-apple-gray-700">
-                        讚了你的旅吧見聞貼文
+                        {language === 'en' ? 'liked your Travel Bar post' : '讚了你的旅吧見聞貼文'}
                       </span>
                     )}
 
                     {/* Comment Liked */}
                     {n.type === 'comment_like' && (
                       <span className="text-apple-gray-700">
-                        讚了你在旅吧的留言：
+                        {language === 'en' ? 'liked your comment:' : '讚了你在旅吧的留言：'}
                       </span>
                     )}
 
                     {/* Post Comment */}
                     {n.type === 'post_comment' && (
                       <span className="text-apple-gray-700">
-                        在你的旅吧貼文留言：
+                        {language === 'en' ? 'commented on your post:' : '在你的旅吧貼文留言：'}
                       </span>
                     )}
 
                     {/* Comment Reply */}
                     {n.type === 'comment_reply' && (
                       <span className="text-apple-gray-700">
-                        回覆了你在旅吧的留言：
+                        {language === 'en' ? 'replied to your comment:' : '回覆了你在旅吧的留言：'}
                       </span>
                     )}
 
                     {/* Post Mention */}
                     {n.type === 'post_mention' && (
                       <span className="text-apple-gray-700">
-                        在旅吧見聞貼文中提及了你：
+                        {language === 'en' ? 'mentioned you in a Travel Bar post:' : '在旅吧見聞貼文中提及了你：'}
                       </span>
                     )}
 
                     {/* Comment Mention */}
                     {n.type === 'comment_mention' && (
                       <span className="text-apple-gray-700">
-                        在旅吧留言中提及了你：
+                        {language === 'en' ? 'mentioned you in a comment:' : '在旅吧留言中提及了你：'}
                       </span>
                     )}
 
                     {/* Trip Comment */}
                     {n.type === 'trip_comment' && (
                       <span className="text-apple-gray-700">
-                        在你的 {n.trip?.country || '旅程'} 貼文留言：
+                        {language === 'en'
+                          ? `commented on your ${formatCountryName(n.trip?.country || '', 'en') || 'trip'} post:`
+                          : `在你的 ${n.trip?.country || '旅程'} 貼文留言：`}
                       </span>
                     )}
 
                     {/* Trip Itinerary Updated */}
                     {n.type === 'trip_itinerary_updated' && (
                       <span className="text-apple-gray-700">
-                        在 {n.trip?.country || '旅程'} 中添加或修改了行程規劃
+                        {language === 'en'
+                          ? `updated the itinerary schedule in ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}`
+                          : `在 ${n.trip?.country || '旅程'} 中添加或修改了行程規劃`}
                       </span>
                     )}
 
                     {/* Trip Member Removed */}
                     {n.type === 'trip_member_removed' && (
                       <span className="text-apple-gray-700">
-                        將你從 {n.trip?.country || '旅程'} 中移除了。
+                        {language === 'en'
+                          ? `removed you from the ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}.`
+                          : `將你從 ${n.trip?.country || '旅程'} 中移除了。`}
                       </span>
                     )}
 
                     {/* Trip Member Exited */}
                     {n.type === 'trip_member_exited' && (
                       <span className="text-apple-gray-700">
-                        退出了你的 {n.trip?.country || '旅程'}。
+                        {language === 'en'
+                          ? `left your ${formatCountryName(n.trip?.country || '', 'en') || 'trip'}.`
+                          : `退出了你的 ${n.trip?.country || '旅程'}。`}
                       </span>
                     )}
                   </p>
@@ -561,7 +583,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                     </span>
                     {n.trip?.country && (
                       <span className="text-[10.5px] px-1.5 py-0.2 bg-apple-gray-100 text-apple-gray-600 rounded-md font-medium">
-                        {n.trip.country}
+                        {formatCountryName(n.trip.country, language)}
                       </span>
                     )}
                   </div>
@@ -575,14 +597,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                         className="bg-[#0081d1] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 hover:bg-[#0070b8]"
                       >
                         <Check size={13} strokeWidth={2.5} />
-                        確認
+                        {language === 'en' ? 'Confirm' : '確認'}
                       </button>
                       <button
                         onClick={() => handleActionFriendRequest(n, false)}
                         disabled={isActionBusy}
                         className="bg-apple-gray-100 text-apple-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all hover:bg-apple-gray-200"
                       >
-                        刪除
+                        {language === 'en' ? 'Delete' : '刪除'}
                       </button>
                     </div>
                   )}
@@ -596,14 +618,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                         className="bg-[#035096] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 hover:bg-[#023b70]"
                       >
                         <Check size={13} strokeWidth={2.5} />
-                        核准簽證
+                        {language === 'en' ? 'Approve' : '核准簽證'}
                       </button>
                       <button
                         onClick={() => handleActionTripJoin(n, false)}
                         disabled={isActionBusy}
                         className="bg-apple-gray-100 text-apple-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all hover:bg-apple-gray-200"
                       >
-                        婉拒
+                        {language === 'en' ? 'Decline' : '婉拒'}
                       </button>
                     </div>
                   )}
@@ -631,15 +653,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                     </div>
                   ) : n.type === 'friend_request' && n.status === 'approved' ? (
                     <span className="text-[11px] font-bold text-[#0081d1] bg-[#0081d1]/10 px-2 py-1 rounded-md">
-                      已成好友
+                      {language === 'en' ? 'Friends' : '已成好友'}
                     </span>
                   ) : n.type === 'trip_join_request' && n.status === 'approved' ? (
                     <span className="text-[11px] font-bold text-[#035096] bg-[#035096]/10 px-2 py-1 rounded-md">
-                      已核准
+                      {language === 'en' ? 'Approved' : '已核准'}
                     </span>
                   ) : n.type === 'trip_itinerary_updated' ? (
                     <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md flex items-center gap-1">
-                      查看行程
+                      {language === 'en' ? 'Itinerary' : '查看行程'}
                       <ArrowRight size={11} />
                     </span>
                   ) : null}
@@ -652,9 +674,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             <div className="w-16 h-16 rounded-full bg-apple-gray-100 flex items-center justify-center text-apple-gray-400 mb-3 shadow-inner">
               <Bell size={28} strokeWidth={1.5} />
             </div>
-            <h3 className="text-base font-bold text-apple-gray-900">尚無新的通知</h3>
+            <h3 className="text-base font-bold text-apple-gray-900">
+              {language === 'en' ? 'No new notifications' : '尚無新的通知'}
+            </h3>
             <p className="text-xs text-apple-gray-600 mt-1 max-w-[240px] leading-relaxed">
-              旅吧貼文的按讚留言、好友申請與旅程簽證動態將會顯示於此。
+              {language === 'en' 
+                ? 'Likes, comments, friend requests, and trip updates will appear here.' 
+                : '旅吧貼文的按讚留言、好友申請與旅程簽證動態將會顯示於此。'}
             </p>
           </div>
         )}

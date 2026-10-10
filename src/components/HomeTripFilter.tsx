@@ -12,6 +12,8 @@ import {
   Check 
 } from 'lucide-react';
 import { Continent } from '../lib/continentUtils';
+import { useLanguage } from '../context/LanguageContext';
+import { formatContinentName, formatTripStatus, formatBudgetLevel } from '../lib/countryTranslation';
 
 export interface TripFilters {
   statuses: ('徵人中' | '已滿員' | '僅限好友')[];
@@ -48,6 +50,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
   onClose,
   matchCount
 }) => {
+  const { language, t } = useLanguage();
   const statusOptions: ('徵人中' | '已滿員' | '僅限好友')[] = ['徵人中', '已滿員', '僅限好友'];
   const continentOptions: Continent[] = ['歐洲', '亞洲', '非洲', '大洋洲', '美洲'];
   const genderOptions: ('男' | '女' | '不限')[] = ['男', '女', '不限'];
@@ -100,10 +103,10 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       <div className="flex items-center justify-between pb-3 border-b border-apple-gray-100">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-apple-blue" />
-          <h3 className="text-sm font-bold text-apple-gray-900 tracking-tight">旅程篩選器</h3>
+          <h3 className="text-sm font-bold text-apple-gray-900 tracking-tight">{t('filter.title')}</h3>
           {hasActiveFilters && (
             <span className="text-[11px] font-semibold text-apple-blue bg-blue-50 px-2 py-0.5 rounded-full">
-              已套用條件
+              {t('filter.applied')}
             </span>
           )}
         </div>
@@ -115,14 +118,14 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
               className="flex items-center gap-1 text-xs font-semibold text-apple-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-lg active:scale-95 cursor-pointer"
             >
               <RotateCcw size={12} />
-              <span>重設</span>
+              <span>{t('filter.reset')}</span>
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
             className="w-7 h-7 rounded-full bg-apple-gray-100 hover:bg-apple-gray-200 text-apple-gray-500 flex items-center justify-center transition-colors active:scale-90 cursor-pointer"
-            aria-label="收起篩選"
+            aria-label={t('common.close')}
           >
             <X size={15} />
           </button>
@@ -133,7 +136,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500">
           <Clock size={13} className="text-apple-gray-400" />
-          <span>旅程狀態</span>
+          <span>{t('filter.status')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {statusOptions.map((st) => {
@@ -150,7 +153,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 }`}
               >
                 {isSelected && <Check size={12} strokeWidth={3} />}
-                <span>{st}</span>
+                <span>{formatTripStatus(st, language)}</span>
               </button>
             );
           })}
@@ -161,7 +164,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500">
           <Globe size={13} className="text-apple-gray-400" />
-          <span>旅遊洲</span>
+          <span>{t('filter.continent')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {continentOptions.map((continent) => {
@@ -178,7 +181,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 }`}
               >
                 {isSelected && <Check size={12} strokeWidth={3} />}
-                <span>{continent}</span>
+                <span>{formatContinentName(continent, language)}</span>
               </button>
             );
           })}
@@ -190,7 +193,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500 min-w-0 truncate">
             <Calendar size={13} className="text-apple-gray-400 flex-shrink-0" />
-            <span className="truncate">旅遊日期（出發至結束全包區間）</span>
+            <span className="truncate">{t('filter.dates')}</span>
           </div>
           {(filters.startDate || filters.endDate) && (
             <button
@@ -198,7 +201,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
               onClick={() => onChange({ ...filters, startDate: '', endDate: '' })}
               className="text-[11px] font-semibold text-apple-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0"
             >
-              清除日期
+              {t('filter.clearDate')}
             </button>
           )}
         </div>
@@ -212,7 +215,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 : 'bg-apple-gray-50/90 border-apple-gray-200/60 text-apple-gray-600 font-medium'
             }`}>
               <span className="truncate text-[11px] sm:text-xs tracking-tight">
-                {filters.startDate ? filters.startDate.replace(/-/g, '/') : '年/月/日'}
+                {filters.startDate ? filters.startDate.replace(/-/g, '/') : t('filter.datePlaceholder')}
               </span>
               <Calendar size={13} className={`flex-shrink-0 ml-1 ${filters.startDate ? 'text-apple-blue' : 'text-apple-gray-400'}`} />
             </div>
@@ -221,11 +224,11 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
               value={filters.startDate}
               onChange={(e) => onChange({ ...filters, startDate: e.target.value })}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="起始日期"
+              aria-label={t('filter.dates')}
             />
           </div>
 
-          <span className="text-xs font-bold text-apple-gray-400 flex-shrink-0 select-none px-0.5">至</span>
+          <span className="text-xs font-bold text-apple-gray-400 flex-shrink-0 select-none px-0.5">{t('filter.to')}</span>
 
           {/* End Date */}
           <div className="relative flex-1 min-w-0">
@@ -235,7 +238,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 : 'bg-apple-gray-50/90 border-apple-gray-200/60 text-apple-gray-600 font-medium'
             }`}>
               <span className="truncate text-[11px] sm:text-xs tracking-tight">
-                {filters.endDate ? filters.endDate.replace(/-/g, '/') : '年/月/日'}
+                {filters.endDate ? filters.endDate.replace(/-/g, '/') : t('filter.datePlaceholder')}
               </span>
               <Calendar size={13} className={`flex-shrink-0 ml-1 ${filters.endDate ? 'text-apple-blue' : 'text-apple-gray-400'}`} />
             </div>
@@ -245,13 +248,13 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
               min={filters.startDate || undefined}
               onChange={(e) => onChange({ ...filters, endDate: e.target.value })}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              aria-label="結束日期"
+              aria-label={t('filter.dates')}
             />
           </div>
         </div>
 
         <p className="text-[11px] text-apple-gray-400 pl-0.5 leading-relaxed break-words">
-          * 篩選結果僅顯示旅程第 1 天至最後一天均完整包含在此區間內的行程
+          {t('filter.dateNotice')}
         </p>
       </div>
 
@@ -259,11 +262,12 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500">
           <UserCheck size={13} className="text-apple-gray-400" />
-          <span>徵旅伴</span>
+          <span>{t('filter.seeking')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {genderOptions.map((g) => {
             const isSelected = filters.gender === g;
+            const genderLabel = g === '男' ? (language === 'en' ? 'Men' : '男') : g === '女' ? (language === 'en' ? 'Women' : '女') : (language === 'en' ? 'Any' : '不限');
             return (
               <button
                 key={g}
@@ -276,7 +280,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 }`}
               >
                 {isSelected && <Check size={12} strokeWidth={3} />}
-                <span>{g}</span>
+                <span>{genderLabel}</span>
               </button>
             );
           })}
@@ -288,12 +292,12 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500">
             <Users size={13} className="text-apple-gray-400" />
-            <span>人數上限</span>
+            <span>{t('filter.maxPeople')}</span>
           </div>
           <span className="text-xs font-bold text-apple-blue px-2 py-0.5 bg-blue-50 rounded-lg">
             {filters.maxPeople === null || filters.maxPeople >= 20
-              ? '不限人數'
-              : `最多 ${filters.maxPeople} 人`}
+              ? t('filter.unlimitedPeople')
+              : (language === 'en' ? `Up to ${filters.maxPeople} people` : `最多 ${filters.maxPeople} 人`)}
           </span>
         </div>
         
@@ -311,11 +315,11 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
             className="w-full h-2 bg-apple-gray-200 rounded-lg appearance-none cursor-pointer accent-apple-blue focus:outline-none"
           />
           <div className="flex justify-between text-[10px] font-semibold text-apple-gray-400 mt-1 px-0.5">
-            <span>1人</span>
-            <span>5人</span>
-            <span>10人</span>
-            <span>15人</span>
-            <span>20人 (不限)</span>
+            <span>{language === 'en' ? '1' : '1人'}</span>
+            <span>{language === 'en' ? '5' : '5人'}</span>
+            <span>{language === 'en' ? '10' : '10人'}</span>
+            <span>{language === 'en' ? '15' : '15人'}</span>
+            <span>{language === 'en' ? '20+ (Any)' : '20人 (不限)'}</span>
           </div>
         </div>
       </div>
@@ -324,7 +328,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-500">
           <Wallet size={13} className="text-apple-gray-400" />
-          <span>旅遊成本</span>
+          <span>{t('filter.budget')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {budgetOptions.map((b) => {
@@ -341,7 +345,7 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
                 }`}
               >
                 {isSelected && <Check size={12} strokeWidth={3} />}
-                <span>{b}</span>
+                <span>{formatBudgetLevel(b, language)}</span>
               </button>
             );
           })}
@@ -351,14 +355,14 @@ export const HomeTripFilter: React.FC<HomeTripFilterProps> = ({
       {/* Bottom Action / Match Result Count */}
       <div className="pt-2 border-t border-apple-gray-100 flex items-center justify-between gap-3">
         <span className="text-xs text-apple-gray-500 font-medium">
-          符合條件：<strong className="text-apple-blue font-bold text-sm">{matchCount}</strong> 則旅程
+          {t('filter.matches')}<strong className="text-apple-blue font-bold text-sm">{matchCount}</strong>{t('filter.tripsCount')}
         </span>
         <button
           type="button"
           onClick={onClose}
           className="px-5 py-2 bg-apple-blue hover:bg-blue-600 text-white rounded-xl text-xs font-bold shadow-apple-xs active:scale-95 transition-all cursor-pointer"
         >
-          查看結果
+          {t('filter.viewResults')}
         </button>
       </div>
     </motion.div>

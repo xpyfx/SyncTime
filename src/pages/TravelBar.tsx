@@ -266,7 +266,7 @@ export const TravelBarView: React.FC<{
   };
 
   const handleMediaSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
+    const selectedFiles: File[] = Array.from(event.target.files || []);
     event.target.value = '';
     if (selectedFiles.length === 0) return;
 
@@ -812,25 +812,25 @@ export const TravelBarView: React.FC<{
 
   const getActionConfig = (actionName: string, post?: BarPost) => {
     switch (actionName) {
-      case '點讚': return { icon: ThumbsUp, color: 'text-apple-blue', label: '點讚' };
+      case '點讚': return { icon: ThumbsUp, color: 'text-apple-blue', label: t('common.like') };
       case '收藏': {
         const isSaved = post ? savedPostIds.has(post.id) : false;
         return { 
           icon: Bookmark, 
           color: isSaved ? 'text-apple-gray-400' : 'text-red-500', 
-          label: isSaved ? '取消收藏' : '收藏' 
+          label: isSaved ? t('common.unsave') : t('common.save') 
         };
       }
-      case '不感興趣': return { icon: EyeOff, color: 'text-black', label: '不感興趣' };
+      case '不感興趣': return { icon: EyeOff, color: 'text-black', label: t('common.notInterested') };
       case '檢舉': {
         const isReported = post ? reportedPostIds.has(post.id) : false;
         return { 
           icon: isReported ? Check : ShieldAlert, 
           color: isReported ? 'text-emerald-600' : 'text-red-600', 
-          label: isReported ? '已檢舉' : '檢舉' 
+          label: isReported ? t('common.reported') : t('common.report') 
         };
       }
-      default: return { icon: ThumbsUp, color: 'text-apple-blue', label: '點讚' };
+      default: return { icon: ThumbsUp, color: 'text-apple-blue', label: t('common.like') };
     }
   };
 
@@ -916,8 +916,8 @@ export const TravelBarView: React.FC<{
   return (
     <div className="flex flex-col min-h-screen bg-apple-gray-50">
       {/* Header */}
-      <div className="sticky top-0 bg-apple-gray-50/80 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 border-b border-apple-gray-100/50">
-        <div className="flex items-center justify-between mb-4">
+      <div className="sticky top-0 bg-apple-gray-50/80 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 border-b border-apple-gray-100/50">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('bar.title')}</h1>
           <button 
             onClick={() => setIsPosting(true)}
@@ -935,27 +935,27 @@ export const TravelBarView: React.FC<{
             onClick={() => handleTabChange('hot')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'hot' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
-            熱門
+            {t('bar.hot')}
           </button>
           <button 
             id="tab-travelbar-recommended"
             onClick={() => handleTabChange('recommended')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'recommended' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
-            推薦
+            {t('bar.recommended')}
           </button>
           <button 
             id="tab-travelbar-friends"
             onClick={() => handleTabChange('friends')}
             className={`px-4 py-1.5 text-xs font-bold transition-all rounded-xl relative ${activeTab === 'friends' ? 'bg-[#E6F5FF] text-[#2A2B2A] shadow-apple-sm' : 'text-apple-gray-400 hover:text-apple-gray-600'}`}
           >
-            好友
+            {t('bar.friends')}
           </button>
         </div>
       </div>
 
       {/* Search */}
-      <div className="p-5">
+      <div className="px-5 pt-3 pb-2">
         <GlassSearchInput
           placeholder={t('bar.search')}
           value={search}
@@ -968,15 +968,17 @@ export const TravelBarView: React.FC<{
       <div className="pb-32 px-5 space-y-4">
         {user && (profile?.hiddenItems?.length ?? 0) > 0 && (
           <div className="flex items-center justify-center py-2 bg-apple-gray-100/50 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-            <span className="text-[10px] font-bold text-apple-gray-400">已隱藏 {profile?.hiddenItems?.length} 則旅文</span>
+            <span className="text-[10px] font-bold text-apple-gray-400">
+              {t('bar.hiddenBanner', { count: String(profile?.hiddenItems?.length || 0) })}
+            </span>
             <button 
               onClick={() => {
                 const lastHidden = profile?.hiddenItems?.[profile.hiddenItems.length - 1];
                 if (lastHidden) updateDoc(doc(db, 'users', user.uid), { hiddenItems: arrayRemove(lastHidden) });
               }}
-              className="ml-3 text-[10px] font-black text-apple-blue active:scale-90 transition-transform"
+              className="ml-3 text-[10px] font-black text-apple-blue active:scale-90 transition-transform cursor-pointer"
             >
-              恢復
+              {t('home.restore')}
             </button>
           </div>
         )}
@@ -998,9 +1000,9 @@ export const TravelBarView: React.FC<{
             <div className="flex items-center justify-between px-1 pt-1 pb-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-700">
                 <Flame size={14} className="text-orange-500 fill-orange-500" />
-                <span>人氣討論列表</span>
+                <span>{t('bar.popularDiscussions')}</span>
               </div>
-              <span className="text-[11px] text-apple-gray-400 font-medium">依熱度與互動排序</span>
+              <span className="text-[11px] text-apple-gray-400 font-medium">{t('bar.rankedByEngagement')}</span>
             </div>
           </div>
         )}
@@ -1013,7 +1015,7 @@ export const TravelBarView: React.FC<{
                 <div className="flex items-center justify-between mb-2 px-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-apple-gray-900">
                     <Sparkles size={14} className="text-[#035096] fill-[#035096]/20" />
-                    <span>For you</span>
+                    <span>{t('bar.recommended')}</span>
                   </div>
                 </div>
 
@@ -1027,7 +1029,7 @@ export const TravelBarView: React.FC<{
                         : 'bg-apple-gray-100 text-apple-gray-500 hover:text-apple-gray-800'
                     }`}
                   >
-                    全部推薦
+                    {t('bar.allRecommendations')}
                   </button>
                   {interestProfile.keywords.slice(0, 10).map((tag) => (
                     <button
@@ -1095,7 +1097,7 @@ export const TravelBarView: React.FC<{
               }}
               className="ml-2 shrink-0 px-2.5 py-1 rounded-xl bg-white hover:bg-apple-gray-50 text-[#035096] font-bold text-[11px] shadow-2xs border border-[#B6cada] active:scale-95 transition-all cursor-pointer"
             >
-              瀏覽全部推薦
+              {t('bar.browseAll')}
             </button>
           </div>
         )}
@@ -1168,7 +1170,7 @@ export const TravelBarView: React.FC<{
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-0 z-[120] bg-white pt-[max(env(safe-area-inset-top,0px),1rem)] px-5 sm:px-6 flex flex-col h-[100dvh]"
+            className="fixed inset-0 z-[120] bg-white pt-[env(safe-area-inset-top,0px)] px-5 sm:px-6 flex flex-col h-[100dvh]"
           >
             <div className="flex items-center justify-between py-3 mb-4 border-b border-apple-gray-100/60">
               <button onClick={handleCloseComposer} className="text-apple-gray-400 font-bold text-sm px-2 py-1 active:scale-95 transition-transform">{t('bar.cancel')}</button>

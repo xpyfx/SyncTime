@@ -2,53 +2,9 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 
 export type AppLanguage = 'zh-TW' | 'en';
 
-type TranslationKey =
-  | 'nav.home'
-  | 'nav.bar'
-  | 'nav.chat'
-  | 'nav.notifications'
-  | 'nav.profile'
-  | 'home.forYou'
-  | 'home.search'
-  | 'home.filter'
-  | 'home.reset'
-  | 'bar.title'
-  | 'bar.hot'
-  | 'bar.recommended'
-  | 'bar.friends'
-  | 'bar.search'
-  | 'bar.allRecommendations'
-  | 'bar.tripTagRecommendations'
-  | 'bar.publishTitle'
-  | 'bar.publish'
-  | 'bar.cancel'
-  | 'bar.placeholder'
-  | 'bar.media'
-  | 'bar.quickTags'
-  | 'settings.title'
-  | 'settings.done'
-  | 'settings.basic'
-  | 'settings.aiAssistant'
-  | 'settings.editPassport'
-  | 'settings.gestures'
-  | 'settings.hiddenPosts'
-  | 'settings.publicTrajectory'
-  | 'settings.publicTrajectoryHint'
-  | 'settings.language'
-  | 'settings.notifications'
-  | 'settings.blocked'
-  | 'settings.privacy'
-  | 'settings.logout'
-  | 'language.traditionalChinese'
-  | 'language.english'
-  | 'language.choose'
-  | 'translation.viewOriginal'
-  | 'translation.showTranslation'
-  | 'translation.translatedFrom'
-  | 'translation.original'
-  | 'translation.unavailable';
+export type TranslationKey = string;
 
-const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
+const STRINGS: Record<AppLanguage, Record<string, string>> = {
   'zh-TW': {
     'nav.home': '主頁',
     'nav.bar': '旅吧',
@@ -59,6 +15,27 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'home.search': '搜尋目的地或旅伴',
     'home.filter': '篩選旅程',
     'home.reset': '重設',
+    'home.createTrip': '新增貼文',
+    'home.noTrips': '找不到相關的旅伴資訊',
+    'home.hiddenBanner': '已隱藏 {count} 則徵文',
+    'home.restore': '恢復',
+    'filter.title': '旅程篩選器',
+    'filter.applied': '已套用條件',
+    'filter.reset': '重設',
+    'filter.status': '旅程狀態',
+    'filter.continent': '旅遊洲',
+    'filter.dates': '旅遊日期（出發至結束全包區間）',
+    'filter.clearDate': '清除日期',
+    'filter.datePlaceholder': '年/月/日',
+    'filter.to': '至',
+    'filter.dateNotice': '* 篩選結果僅顯示旅程第 1 天至最後一天均完整包含在此區間內的行程',
+    'filter.seeking': '徵旅伴',
+    'filter.maxPeople': '人數上限',
+    'filter.unlimitedPeople': '不限人數',
+    'filter.budget': '旅遊成本',
+    'filter.matches': '符合條件：',
+    'filter.tripsCount': ' 則旅程',
+    'filter.viewResults': '查看結果',
     'bar.title': '旅吧',
     'bar.hot': '熱門',
     'bar.recommended': '推薦',
@@ -72,6 +49,13 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bar.placeholder': '分享你在旅行中遇到的趣事、美食或提醒大家避雷的事...',
     'bar.media': '媒體',
     'bar.quickTags': '快捷標籤：',
+    'bar.popularDiscussions': '人氣討論列表',
+    'bar.rankedByEngagement': '依熱度與互動排序',
+    'bar.hiddenBanner': '已隱藏 {count} 則旅文',
+    'bar.viewSharedPost': '正在查看專屬分享旅文（已置頂推薦）',
+    'bar.browseAll': '瀏覽全部推薦',
+    'bar.noPosts': '暫無相關見聞貼文',
+    'bar.firstPostHint': '快來發布第一則見聞分享你的旅行心得吧！',
     'settings.title': '設定',
     'settings.done': '完成',
     'settings.basic': '基本設定',
@@ -93,7 +77,26 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'translation.showTranslation': '顯示翻譯',
     'translation.translatedFrom': '已從 {language} 翻譯',
     'translation.original': '原文：{language}',
-    'translation.unavailable': '暫時無法翻譯'
+    'translation.unavailable': '暫時無法翻譯',
+    'common.save': '收藏',
+    'common.unsave': '取消收藏',
+    'common.notInterested': '不感興趣',
+    'common.report': '檢舉',
+    'common.reported': '已檢舉',
+    'common.edit': '編輯',
+    'common.delete': '刪除',
+    'common.cancel': '取消',
+    'common.done': '完成',
+    'common.justNow': '剛剛',
+    'common.user': '用戶',
+    'common.deletedAccount': '已註銷帳號',
+    'common.accountDeleted': '帳號已刪除',
+    'common.loading': '載入中...',
+    'common.like': '點讚',
+    'common.close': '關閉',
+    'notif.title': '通知',
+    'notif.subtitle': '社交動態、簽證申請與旅程通知',
+    'notif.markAllRead': '全部標為已讀'
   },
   en: {
     'nav.home': 'Home',
@@ -105,6 +108,27 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'home.search': 'Search destination or travel buddy',
     'home.filter': 'Filter trips',
     'home.reset': 'Reset',
+    'home.createTrip': 'Create trip',
+    'home.noTrips': 'No matching travel companions found',
+    'home.hiddenBanner': 'Hidden {count} posts',
+    'home.restore': 'Restore',
+    'filter.title': 'Trip Filters',
+    'filter.applied': 'Applied',
+    'filter.reset': 'Reset',
+    'filter.status': 'Trip Status',
+    'filter.continent': 'Continent',
+    'filter.dates': 'Travel Dates (Full trip duration)',
+    'filter.clearDate': 'Clear dates',
+    'filter.datePlaceholder': 'YYYY/MM/DD',
+    'filter.to': 'to',
+    'filter.dateNotice': '* Only trips fully contained within this date range will be shown',
+    'filter.seeking': 'Seeking Companions',
+    'filter.maxPeople': 'Max Group Size',
+    'filter.unlimitedPeople': 'No limit',
+    'filter.budget': 'Budget Level',
+    'filter.matches': 'Matching: ',
+    'filter.tripsCount': ' trips',
+    'filter.viewResults': 'Show Results',
     'bar.title': 'Travel Bar',
     'bar.hot': 'Popular',
     'bar.recommended': 'For you',
@@ -118,6 +142,13 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'bar.placeholder': 'Share travel moments, food finds, tips, or things others should avoid...',
     'bar.media': 'Media',
     'bar.quickTags': 'Quick tags:',
+    'bar.popularDiscussions': 'Popular Discussions',
+    'bar.rankedByEngagement': 'Ranked by popularity & engagement',
+    'bar.hiddenBanner': 'Hidden {count} posts',
+    'bar.viewSharedPost': 'Viewing shared post (pinned)',
+    'bar.browseAll': 'Browse all recommendations',
+    'bar.noPosts': 'No matching posts yet',
+    'bar.firstPostHint': 'Be the first to share a travel post!',
     'settings.title': 'Settings',
     'settings.done': 'Done',
     'settings.basic': 'Basic settings',
@@ -139,14 +170,33 @@ const STRINGS: Record<AppLanguage, Record<TranslationKey, string>> = {
     'translation.showTranslation': 'Show translation',
     'translation.translatedFrom': 'Translated from {language}',
     'translation.original': 'Original: {language}',
-    'translation.unavailable': 'Translation unavailable'
+    'translation.unavailable': 'Translation unavailable',
+    'common.save': 'Save',
+    'common.unsave': 'Unsave',
+    'common.notInterested': 'Not interested',
+    'common.report': 'Report',
+    'common.reported': 'Reported',
+    'common.edit': 'Edit',
+    'common.delete': 'Delete',
+    'common.cancel': 'Cancel',
+    'common.done': 'Done',
+    'common.justNow': 'Just now',
+    'common.user': 'User',
+    'common.deletedAccount': 'Deleted account',
+    'common.accountDeleted': 'Account deleted',
+    'common.loading': 'Loading...',
+    'common.like': 'Like',
+    'common.close': 'Close',
+    'notif.title': 'Notifications',
+    'notif.subtitle': 'Social activity, visa requests & trip updates',
+    'notif.markAllRead': 'Mark all as read'
   }
 };
 
 type LanguageContextValue = {
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
-  t: (key: TranslationKey, params?: Record<string, string>) => string;
+  t: (key: string, params?: Record<string, string>) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Plus, Bookmark, EyeOff, ShieldAlert, Hourglass, X, RotateCcw } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, deleteDoc, where, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, setDoc, deleteDoc, where, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Trip, UserProfile, GestureSettings } from '../types';
 import { TripCard } from '../components/TripCard';
 import { GlassSearchInput } from '../components/GlassSearchInput';
@@ -12,7 +12,7 @@ import { HomeTripFilter, TripFilters, INITIAL_TRIP_FILTERS } from '../components
 import { getContinentByCountry } from '../lib/continentUtils';
 import { ReportModal } from '../components/ReportModal';
 import { useLanguage } from '../context/LanguageContext';
-import { useUserDirectory } from '../context/UserDirectoryContext';
+import { formatContinentName, formatTripStatus, formatBudgetLevel } from '../lib/countryTranslation';
 
 interface HomeViewProps {
   onAvatarClick: (userId: string) => void;
@@ -23,8 +23,8 @@ interface HomeViewProps {
 export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, onAddClick }) => {
   const { user, profile, isUserBlocked } = useAuth();
   const { language, t } = useLanguage();
-  const { profiles } = useUserDirectory();
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, UserProfile | null>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [savedTripIds, setSavedTripIds] = useState<Set<string>>(new Set());
@@ -54,7 +54,33 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       setTrips(data);
       setLoading(false);
 
-
+      // Fetch authors for search and privacy checks
+      const authorIds = Array.from(new Set(data.map(t => t.authorId)));
+      if (authorIds.length > 0) {
+        try {
+          const results = await Promise.all(authorIds.map(async (id) => {
+            try {
+              const uSnap = await getDoc(doc(db, 'users', id));
+              if (uSnap.exists()) {
+                return { id, profile: uSnap.data() as UserProfile };
+              }
+              return { id, profile: null };
+            } catch (err) {
+              console.warn('Error fetching profile for id:', id, err);
+              return null;
+            }
+          }));
+          const fetched: Record<string, UserProfile | null> = {};
+          results.forEach(r => {
+            if (r) fetched[r.id] = r.profile;
+          });
+          if (Object.keys(fetched).length > 0) {
+            setProfiles(prev => ({ ...prev, ...fetched }));
+          }
+        } catch (error) {
+          console.error('Error fetching profiles: ', error);
+        }
+      }
     }, (err) => {
       console.warn('Trips onSnapshot error:', err);
       setLoading(false);
@@ -93,11 +119,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       case '收藏': return { 
         icon: Bookmark, 
         color: isSaved ? 'text-apple-gray-400' : 'text-red-500', 
-        label: isSaved ? '取消收藏' : '收藏' 
+        label: isSaved ? t('common.unsave') : t('common.save') 
       };
-      case '不感興趣': return { icon: EyeOff, color: 'text-black', label: '不感興趣' };
-      case '檢舉': return { icon: ShieldAlert, color: 'text-red-600', label: '檢舉' };
-      default: return { icon: Bookmark, color: 'text-red-500', label: '收藏' };
+      case '不感興趣': return { icon: EyeOff, color: 'text-black', label: t('common.notInterested') };
+      case '檢舉': return { icon: ShieldAlert, color: 'text-red-600', label: t('common.report') };
+      default: return { icon: Bookmark, color: 'text-red-500', label: t('common.save') };
     }
   };
 
@@ -215,8 +241,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       />
 
       {/* Header / Search */}
-      <div className="sticky top-0 bg-[#8AD2FF]/20 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),48px)] pb-2 transition-all">
-        <div className="flex justify-between items-center mb-5">
+      <div className="sticky top-0 bg-[#8AD2FF]/20 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 transition-all">
+        <div className="flex justify-between items-center mb-3">
           <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('home.forYou')}</h1>
           <button 
             onClick={onAddClick}
@@ -290,7 +316,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== st) }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>{st}</span>
+                <span>{formatTripStatus(st, language)}</span>
                 <X size={11} />
               </span>
             ))}
@@ -300,7 +326,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, continents: prev.continents.filter(item => item !== c) }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>{c}</span>
+                <span>{formatContinentName(c, language)}</span>
                 <X size={11} />
               </span>
             ))}
@@ -318,7 +344,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, gender: null }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>徵{filters.gender}</span>
+                <span>{filters.gender === '男' ? (language === 'en' ? 'Men' : '徵男') : filters.gender === '女' ? (language === 'en' ? 'Women' : '徵女') : (language === 'en' ? 'Any gender' : '徵不限')}</span>
                 <X size={11} />
               </span>
             )}
@@ -327,7 +353,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, maxPeople: null }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>最多{filters.maxPeople}人</span>
+                <span>{language === 'en' ? `Up to ${filters.maxPeople}` : `最多${filters.maxPeople}人`}</span>
                 <X size={11} />
               </span>
             )}
@@ -337,7 +363,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 onClick={() => setFilters(prev => ({ ...prev, budgetLevels: prev.budgetLevels.filter(item => item !== b) }))}
                 className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-apple-blue font-semibold border border-blue-200/60 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
               >
-                <span>{b}</span>
+                <span>{formatBudgetLevel(b, language)}</span>
                 <X size={11} />
               </span>
             ))}
@@ -349,15 +375,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       <div className="px-5 pb-32">
         {user && (profile?.hiddenItems?.length ?? 0) > 0 && (
           <div className="flex items-center justify-center py-2 mb-4 bg-apple-gray-100/50 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-            <span className="text-[10px] font-bold text-apple-gray-400">已隱藏 {profile?.hiddenItems?.length} 則徵文</span>
+            <span className="text-[10px] font-bold text-apple-gray-400">
+              {t('home.hiddenBanner', { count: String(profile?.hiddenItems?.length || 0) })}
+            </span>
             <button 
               onClick={() => {
                 const lastHidden = profile?.hiddenItems?.[profile.hiddenItems.length - 1];
                 if (lastHidden) updateDoc(doc(db, 'users', user.uid), { hiddenItems: arrayRemove(lastHidden) });
               }}
-              className="ml-3 text-[10px] font-black text-apple-blue active:scale-90 transition-transform"
+              className="ml-3 text-[10px] font-black text-apple-blue active:scale-90 transition-transform cursor-pointer"
             >
-              恢復
+              {t('home.restore')}
             </button>
           </div>
         )}
@@ -392,6 +420,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
                 >
                   <TripCard 
                     trip={trip} 
+                    author={profiles[trip.authorId]}
+                    authorLoaded={Object.prototype.hasOwnProperty.call(profiles, trip.authorId)}
                     onAvatarClick={onAvatarClick}
                     onCommentClick={(e) => {
                       e.stopPropagation();
@@ -404,7 +434,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
           </AnimatePresence>
         ) : (
           <div className="py-20 text-center text-apple-gray-300 font-light">
-            找不到相關的旅伴資訊
+            {t('home.noTrips')}
           </div>
         )}
       </div>
