@@ -216,9 +216,10 @@ const GroupDeletionBanner: React.FC<{ endDate?: string }> = ({ endDate }) => {
 interface ChatRoomItemProps {
   room: ChatRoom;
   onClick: () => void;
+  onAvatarClick?: (userId: string) => void;
 }
 
-const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
+const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick, onAvatarClick }) => {
   const { user, isUserBlocked } = useAuth();
   const { language } = useLanguage();
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
@@ -277,7 +278,18 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room, onClick }) => {
 
   return (
     <div onClick={onClick} className="flex gap-3.5 p-4 active:bg-apple-gray-50 transition-colors cursor-pointer border-b border-apple-gray-100/70 items-center">
-      <div className="w-13 h-13 rounded-full bg-apple-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center border border-apple-gray-200/50">
+      <div
+        onClick={(e) => {
+          if (!isGroup && otherId && onAvatarClick) {
+            e.stopPropagation();
+            onAvatarClick(otherId);
+          }
+        }}
+        className={`w-13 h-13 rounded-full bg-apple-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center border border-apple-gray-200/50 ${
+          !isGroup && otherId && onAvatarClick ? 'cursor-pointer active:scale-95 transition-transform' : ''
+        }`}
+        title={!isGroup ? (language === 'en' ? 'View profile' : '查看個人主頁') : undefined}
+      >
         {isGroup ? (
           <div className="bg-apple-blue/10 w-full h-full flex items-center justify-center text-apple-blue">
             <Users size={26} />
@@ -6655,7 +6667,12 @@ export const ChatPage: React.FC<{
           <div>
             {directRooms.length > 0 ? (
               directRooms.map(room => (
-                <ChatRoomItem key={room.id} room={room} onClick={() => setSelectedRoomId(room.id)} />
+                <ChatRoomItem
+                  key={room.id}
+                  room={room}
+                  onClick={() => setSelectedRoomId(room.id)}
+                  onAvatarClick={onAvatarClick}
+                />
               ))
             ) : (
               <div className="py-20 text-center text-apple-gray-300 font-light text-sm">
