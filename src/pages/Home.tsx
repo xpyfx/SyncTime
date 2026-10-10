@@ -33,6 +33,26 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
   const [reportingTrip, setReportingTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const themeMeta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+
+    const previousHtmlBg = html.style.backgroundColor;
+    const previousBodyBg = body.style.backgroundColor;
+    const previousTheme = themeMeta?.content || '';
+
+    html.style.backgroundColor = '#8AD2FF';
+    body.style.backgroundColor = '#8AD2FF';
+    if (themeMeta) themeMeta.content = '#8AD2FF';
+
+    return () => {
+      html.style.backgroundColor = previousHtmlBg;
+      body.style.backgroundColor = previousBodyBg;
+      if (themeMeta) themeMeta.content = previousTheme || '#FFFFFF';
+    };
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       setSavedTripIds(new Set());
       return;
@@ -231,15 +251,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
   });
 
   return (
-    <div className="flex flex-col min-h-screen text-apple-gray-900 relative isolate pt-[max(env(safe-area-inset-top,0px),12px)]">
-      {/* Fixed Gradient Background */}
-      <div 
-        className="fixed inset-0 max-w-md mx-auto pointer-events-none -z-10"
-        style={{
-          background: 'linear-gradient(180deg, #8AD2FF 0%, #B8E4FF 220px, #E6F5FF 480px, #FFFFFF 800px)'
-        }}
-      />
-
+    <div
+      className="flex flex-col min-h-[100dvh] text-apple-gray-900 relative isolate pt-[max(env(safe-area-inset-top,0px),12px)]"
+      style={{
+        background: 'linear-gradient(180deg, #8AD2FF 0%, #B8E4FF 220px, #E6F5FF 480px, #FFFFFF 800px)'
+      }}
+    >
       {/* Header / Search */}
       <div className="px-5 pb-2 transition-all">
         <div className="flex justify-between items-center mb-3">
