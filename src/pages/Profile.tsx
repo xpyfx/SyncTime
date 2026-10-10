@@ -1659,9 +1659,9 @@ export const ProfilePage: React.FC<{
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-apple-gray-50 overflow-x-hidden touch-pan-y">
+    <div className="flex flex-col min-h-screen bg-apple-gray-50 overflow-x-hidden touch-pan-y pt-[max(env(safe-area-inset-top,0px),12px)]">
       {/* Top Action Icons - Sticky with iPhone Safe Area Inset and Comfort Margin */}
-      <div className="sticky top-0 left-0 right-0 z-20 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 flex items-center justify-between pointer-events-none bg-apple-gray-50/90 backdrop-blur-md transition-all">
+      <div className="px-5 pb-2 flex items-center justify-between pointer-events-none transition-all">
         {onBack ? (
           <button 
             onClick={onBack}
