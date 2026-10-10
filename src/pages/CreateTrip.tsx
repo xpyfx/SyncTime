@@ -247,6 +247,26 @@ export const CreateTripView: React.FC<{ onCancel: () => void, editingTrip?: Trip
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const themeMeta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+
+    const previousHtmlBg = html.style.backgroundColor;
+    const previousBodyBg = body.style.backgroundColor;
+    const previousTheme = themeMeta?.content || '';
+
+    html.style.backgroundColor = '#8AD2FF';
+    body.style.backgroundColor = '#8AD2FF';
+    if (themeMeta) themeMeta.content = '#8AD2FF';
+
+    return () => {
+      html.style.backgroundColor = previousHtmlBg;
+      body.style.backgroundColor = previousBodyBg;
+      if (themeMeta) themeMeta.content = previousTheme || '#FFFFFF';
+    };
+  }, []);
+
+  useEffect(() => {
     if (editingTrip) {
       setCountry(editingTrip.country);
       setCities(editingTrip.cities && editingTrip.cities.length > 0 ? editingTrip.cities : ['']);
@@ -426,14 +446,19 @@ export const CreateTripView: React.FC<{ onCancel: () => void, editingTrip?: Trip
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-[#f4f7fb]/95 backdrop-blur-3xl font-sans flex flex-col h-[100dvh] w-full overflow-hidden select-none">
+    <div
+      className="fixed inset-0 z-[120] font-sans flex flex-col h-[100dvh] w-full overflow-hidden select-none pt-[max(env(safe-area-inset-top,0px),12px)]"
+      style={{
+        background: 'linear-gradient(180deg, #8AD2FF 0%, #B8E4FF 220px, #E6F5FF 480px, #F4F7FB 820px)'
+      }}
+    >
       {/* Background Soft Ambient Light Blobs */}
       <div className="fixed -top-16 -left-16 w-80 h-80 rounded-full bg-[#B6CADA]/40 blur-3xl pointer-events-none animate-pulse" />
       <div className="fixed top-1/3 -right-20 w-96 h-96 rounded-full bg-[#F4B896]/25 blur-3xl pointer-events-none" />
       <div className="fixed bottom-10 left-1/3 w-80 h-80 rounded-full bg-[#035096]/15 blur-3xl pointer-events-none" />
 
       {/* Permanently Pinned Header Bar (Supports Dynamic Island & Safe Area) */}
-      <header className="shrink-0 w-full bg-white/85 backdrop-blur-2xl z-30 pt-[env(safe-area-inset-top,0px)] pb-3 px-5 sm:px-6 border-b border-white/80 shadow-[0_4px_24px_rgba(3,80,150,0.06)] flex items-center justify-between gap-3">
+      <header className="shrink-0 w-full z-30 pb-3 px-5 sm:px-6 flex items-center justify-between gap-3">
         <button 
           type="button"
           onClick={onCancel} 
