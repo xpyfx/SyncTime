@@ -1582,10 +1582,9 @@ interface SettlementCardProps {
 const SettlementCard: React.FC<SettlementCardProps> = ({ settlement, msgTime }) => {
   const dateStr = settlement.dateStr || new Date(settlement.createdAt).toLocaleDateString();
   const mainCurr = settlement.mainCurrency || 'TWD';
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   const handleDownloadPdf = () => {
-    const printWin = window.open('', '_blank');
-    if (!printWin) return;
 
     const itemsHtml = (settlement.details && settlement.details.length > 0) ? settlement.details.map((item, idx) => `
       <tr>
@@ -1616,7 +1615,7 @@ const SettlementCard: React.FC<SettlementCardProps> = ({ settlement, msgTime }) 
       </div>
     `).join('');
 
-    printWin.document.write(`
+    setPreviewHtml(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -1697,17 +1696,20 @@ const SettlementCard: React.FC<SettlementCardProps> = ({ settlement, msgTime }) 
 
             <div class="thanks">謝謝 ！</div>
           </div>
-          <script>
-            setTimeout(() => { window.print(); }, 400);
-          </script>
         </body>
       </html>
     `);
-    printWin.document.close();
   };
 
   return (
-    <div className="w-[290px] sm:w-[320px] bg-[#FAF8F5] text-[#222222] rounded-[12px] p-4 sm:p-5 border border-[#E2DFD8] shadow-md font-serif flex flex-col relative text-left">
+    <>
+      <InAppDocumentPreview
+        open={Boolean(previewHtml)}
+        title="費用明細・結算單據"
+        srcDoc={previewHtml || undefined}
+        onClose={() => setPreviewHtml(null)}
+      />
+      <div className="w-[290px] sm:w-[320px] bg-[#FAF8F5] text-[#222222] rounded-[12px] p-4 sm:p-5 border border-[#E2DFD8] shadow-md font-serif flex flex-col relative text-left">
       {/* Top Action Header */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-dashed border-[#B8B3A8]">
         <span className="font-sans text-[11px] font-extrabold text-[#78716C] tracking-wide flex items-center gap-1">
@@ -1845,6 +1847,7 @@ const SettlementCard: React.FC<SettlementCardProps> = ({ settlement, msgTime }) 
         <span>{msgTime}</span>
       </div>
     </div>
+    </>
   );
 };
 
@@ -1857,10 +1860,9 @@ interface ItineraryCardProps {
 
 const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, onViewTrip }) => {
   const [selectedDayTab, setSelectedDayTab] = useState<number | 'all'>('all');
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   const handleDownloadPdf = () => {
-    const printWin = window.open('', '_blank');
-    if (!printWin) return;
 
     const daysHtml = (itineraryCard.days || []).map((day) => `
       <div style="margin-bottom: 24px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -1902,7 +1904,7 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
       </div>
     `).join('');
 
-    printWin.document.write(`
+    setPreviewHtml(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -1957,13 +1959,9 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
             由團員行程規劃功能自動生成 • 祝您旅途愉快！
           </div>
 
-          <script>
-            setTimeout(() => { window.print(); }, 400);
-          </script>
         </body>
       </html>
     `);
-    printWin.document.close();
   };
 
   const daysToRender = itineraryCard.days ? (
@@ -1973,7 +1971,14 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
   ) : [];
 
   return (
-    <div className="w-[300px] sm:w-[340px] bg-[#FAF9F5] text-apple-gray-900 rounded-[22px] p-4 border border-[#E3E0D8] shadow-md font-sans flex flex-col relative text-left overflow-hidden">
+    <>
+      <InAppDocumentPreview
+        open={Boolean(previewHtml)}
+        title={`${itineraryCard.title}・行程規劃表`}
+        srcDoc={previewHtml || undefined}
+        onClose={() => setPreviewHtml(null)}
+      />
+      <div className="w-[300px] sm:w-[340px] bg-[#FAF9F5] text-apple-gray-900 rounded-[22px] p-4 border border-[#E3E0D8] shadow-md font-sans flex flex-col relative text-left overflow-hidden">
       {/* Top Header & Export PDF Button */}
       <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-dashed border-[#CBD5E1]">
         <div className="flex items-center gap-1.5 text-[#0F172A] font-extrabold text-xs">
@@ -2133,6 +2138,7 @@ const ItineraryCard: React.FC<ItineraryCardProps> = ({ itineraryCard, msgTime, o
         {msgTime && <span className="font-medium">{msgTime}</span>}
       </div>
     </div>
+    </>
   );
 };
 
