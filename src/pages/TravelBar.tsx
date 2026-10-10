@@ -914,9 +914,9 @@ export const TravelBarView: React.FC<{
   }, [activeTab, rankedPosts, filteredPosts, selectedInterestTag, targetPostId, posts, extraTargetPost, isUserBlocked]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-apple-gray-50">
+    <div className="flex flex-col min-h-screen bg-apple-gray-50 pt-[max(env(safe-area-inset-top,0px),12px)]">
       {/* Header */}
-      <div className="sticky top-0 bg-apple-gray-50/80 backdrop-blur-xl z-20 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 border-b border-apple-gray-100/50">
+      <div className="px-5 pb-2">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('bar.title')}</h1>
           <button 
