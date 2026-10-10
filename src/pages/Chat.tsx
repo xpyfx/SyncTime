@@ -3696,8 +3696,8 @@ React.useLayoutEffect(() => {
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-white flex flex-col h-[100dvh] w-full overflow-hidden">
-      <div className="px-4 sm:px-5 pt-[env(safe-area-inset-top,0px)] pb-3 border-b border-apple-gray-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
+    <div className="fixed inset-0 z-[110] bg-white flex flex-col h-[100dvh] w-full overflow-hidden pt-[max(env(safe-area-inset-top,0px),12px)]">
+      <div className="px-4 sm:px-5 pb-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
           <button onClick={handleBackClick} className="w-10 h-10 -ml-1 flex items-center justify-center active:scale-90 transition-transform text-apple-gray-600 hover:text-apple-gray-900 cursor-pointer flex-shrink-0 rounded-full" aria-label="返回">
             <ArrowLeft size={22} />
@@ -6377,7 +6377,7 @@ export const ChatPage: React.FC<{
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-white pt-[max(env(safe-area-inset-top,0px),12px)]">
       {/* Search Modal */}
       <AnimatePresence>
         {showSearch && (
@@ -6444,7 +6444,7 @@ export const ChatPage: React.FC<{
       </AnimatePresence>
 
       {/* Header and Capsule Pill Switcher */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-3 border-b border-apple-gray-50">
+      <div className="px-5 pb-3">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-black tracking-tight text-apple-gray-900">{t('nav.chat')}</h1>
           <button 
