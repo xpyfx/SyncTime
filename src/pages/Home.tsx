@@ -231,7 +231,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
   });
 
   return (
-    <div className="flex flex-col min-h-screen text-apple-gray-900 relative isolate">
+    <div className="flex flex-col min-h-screen text-apple-gray-900 relative isolate pt-[max(env(safe-area-inset-top,0px),12px)]">
       {/* Fixed Gradient Background */}
       <div 
         className="fixed inset-0 max-w-md mx-auto pointer-events-none -z-10"
@@ -241,7 +241,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onAvatarClick, onTripClick, 
       />
 
       {/* Header / Search */}
-      <div className="sticky top-0 bg-[#8AD2FF]/20 backdrop-blur-md z-10 px-5 pt-[max(env(safe-area-inset-top,0px),12px)] pb-2 transition-all">
+      <div className="px-5 pb-2 transition-all">
         <div className="flex justify-between items-center mb-3">
           <h1 className="text-2xl font-bold tracking-tight text-apple-gray-900">{t('home.forYou')}</h1>
           <button 
