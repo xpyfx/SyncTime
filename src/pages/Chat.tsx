@@ -522,6 +522,90 @@ const LongPressableImage: React.FC<LongPressableImageProps> = ({
   );
 };
 
+interface InAppDocumentPreviewProps {
+  open: boolean;
+  title: string;
+  src?: string;
+  srcDoc?: string;
+  onClose: () => void;
+  externalUrl?: string;
+}
+
+const InAppDocumentPreview: React.FC<InAppDocumentPreviewProps> = ({
+  open,
+  title,
+  src,
+  srcDoc,
+  onClose,
+  externalUrl
+}) => {
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+
+  if (!open) return null;
+
+  const handlePrint = () => {
+    try {
+      frameRef.current?.contentWindow?.focus();
+      frameRef.current?.contentWindow?.print();
+    } catch (error) {
+      console.warn('Unable to print in-app document:', error);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[260] bg-white flex flex-col h-[100dvh]">
+      <div className="shrink-0 pt-[max(env(safe-area-inset-top,0px),10px)] px-4 pb-3 border-b border-apple-gray-100 bg-white flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-apple-gray-100 text-apple-gray-800 flex items-center justify-center active:scale-95 transition-transform"
+          aria-label="返回聊天室"
+        >
+          <ArrowLeft size={20} />
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold text-apple-gray-900 truncate">{title}</div>
+          <div className="text-[10px] text-apple-gray-400">App 內預覽</div>
+        </div>
+
+        {srcDoc && (
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="h-10 px-3 rounded-xl bg-[#035096] text-white text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform"
+          >
+            <Download size={14} />
+            <span>列印 / PDF</span>
+          </button>
+        )}
+
+        {externalUrl && (
+          <button
+            type="button"
+            onClick={() => window.open(externalUrl, '_blank', 'noopener,noreferrer')}
+            className="w-10 h-10 rounded-full bg-apple-gray-100 text-[#035096] flex items-center justify-center active:scale-95 transition-transform"
+            aria-label="在 Safari 開啟"
+            title="在 Safari 開啟"
+          >
+            <ExternalLink size={18} />
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 bg-[#EEF1F5]">
+        <iframe
+          ref={frameRef}
+          title={title}
+          src={src}
+          srcDoc={srcDoc}
+          className="w-full h-full border-0 bg-white"
+        />
+      </div>
+    </div>
+  );
+};
+
 interface PdfFileCardProps {
   name: string;
   size?: string;
@@ -531,35 +615,14 @@ interface PdfFileCardProps {
 }
 
 const PdfFileCard: React.FC<PdfFileCardProps> = ({ name, size, url, isMe, msgTime }) => {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
   const handleOpenPdf = () => {
-    if (url) {
-      if (url.startsWith('data:')) {
-        const newWin = window.open();
-        if (newWin) {
-          newWin.document.write(`
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <title>${name}</title>
-                <style>body,html{margin:0;padding:0;height:100%;overflow:hidden;background:#525659;}</style>
-              </head>
-              <body>
-                <embed width="100%" height="100%" src="${url}" type="application/pdf" />
-              </body>
-            </html>
-          `);
-        } else {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = name;
-          a.click();
-        }
-      } else {
-        window.open(url, '_blank');
-      }
-    } else {
+    if (!url) {
       alert(`開啟 PDF 檔案：「${name}」`);
+      return;
     }
+    setIsPreviewOpen(true);
   };
 
   const handleDownloadPdf = (e: React.MouseEvent) => {
@@ -575,60 +638,67 @@ const PdfFileCard: React.FC<PdfFileCardProps> = ({ name, size, url, isMe, msgTim
   };
 
   return (
-    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[280px] sm:max-w-xs my-1`}>
-      <div 
-        onClick={handleOpenPdf}
-        className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-2xs group w-full ${
-          isMe 
-            ? 'bg-[#EBF8FF] hover:bg-[#E0F2FE] border-[#BAE6FD]' 
-            : 'bg-white hover:bg-apple-gray-50 border-apple-gray-100'
-        }`}
-      >
-        {/* Top File Meta */}
-        <div className="flex items-center gap-3">
-          {/* Red PDF Icon Badge */}
-          <div className="w-11 h-11 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-            <FileText size={20} className="stroke-[2.2]" />
-            <span className="text-[8px] font-black tracking-widest uppercase -mt-0.5 text-red-600">PDF</span>
+    <>
+      <InAppDocumentPreview
+        open={isPreviewOpen}
+        title={name}
+        src={url}
+        externalUrl={url && !url.startsWith('data:') ? url : undefined}
+        onClose={() => setIsPreviewOpen(false)}
+      />
+
+      <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[280px] sm:max-w-xs my-1`}>
+        <div 
+          onClick={handleOpenPdf}
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-2xs group w-full ${
+            isMe 
+              ? 'bg-[#EBF8FF] hover:bg-[#E0F2FE] border-[#BAE6FD]' 
+              : 'bg-white hover:bg-apple-gray-50 border-apple-gray-100'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+              <FileText size={20} className="stroke-[2.2]" />
+              <span className="text-[8px] font-black tracking-widest uppercase -mt-0.5 text-red-600">PDF</span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-xs text-apple-gray-900 group-hover:text-red-600 transition-colors truncate leading-snug">
+                {name}
+              </div>
+              <div className="text-[10px] text-apple-gray-400 font-medium mt-0.5 flex items-center gap-1.5">
+                <span className="px-1.5 py-0.2 rounded-md bg-red-100/60 text-red-600 font-bold text-[9px]">
+                  PDF 檔案
+                </span>
+                {size && <span>{size}</span>}
+              </div>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="font-bold text-xs text-apple-gray-900 group-hover:text-red-600 transition-colors truncate leading-snug">
-              {name}
+          <div className="mt-3 pt-2.5 border-t border-black/5 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1 text-red-600 font-bold text-[11px] group-hover:translate-x-0.5 transition-transform">
+              <Eye size={13} />
+              <span>App 內預覽</span>
             </div>
-            <div className="text-[10px] text-apple-gray-400 font-medium mt-0.5 flex items-center gap-1.5">
-              <span className="px-1.5 py-0.2 rounded-md bg-red-100/60 text-red-600 font-bold text-[9px]">
-                PDF 檔案
-              </span>
-              {size && <span>{size}</span>}
-            </div>
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+              title="下載 PDF"
+            >
+              <Download size={12} />
+              <span>下載</span>
+            </button>
           </div>
         </div>
 
-        {/* Bottom Actions Row */}
-        <div className="mt-3 pt-2.5 border-t border-black/5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-red-600 font-bold text-[11px] group-hover:translate-x-0.5 transition-transform">
-            <ExternalLink size={13} />
-            <span>點擊預覽 / 開啟</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
-            title="下載 PDF"
-          >
-            <Download size={12} />
-            <span>下載</span>
-          </button>
-        </div>
+        {msgTime && (
+          <span className="text-[10px] text-apple-gray-300 font-medium whitespace-nowrap mt-0.5 px-1">
+            {msgTime}
+          </span>
+        )}
       </div>
-
-      {msgTime && (
-        <span className="text-[10px] text-apple-gray-300 font-medium whitespace-nowrap mt-0.5 px-1">
-          {msgTime}
-        </span>
-      )}
-    </div>
+    </>
   );
 };
 
