@@ -10,60 +10,10 @@ import { doc, collection, getDocs, getDoc, addDoc, deleteDoc, query, where, writ
 import { auth, db } from '../lib/firebase';
 import { GlassSearchInput } from '../components/GlassSearchInput';
 import { Stay, UserProfile } from '../types';
-import EXIF from 'exif-js';
 import { Country, City } from 'country-state-city';
 import { getCitiesByCountry } from '../lib/locationData';
-import TravelGlobe, { parseCoordinateForCountry } from '../components/TravelGlobe';
+import TravelGlobe from '../components/TravelGlobe';
 import { drawStaysPoster, drawInsightsPoster, generatePortablePassportPDF, PassportUserInfo } from '../utils/posterGenerator';
-
-// Helper to project standard binary coordinates back to Country and City
-function findClosestCountryAndCity(lat: number, lng: number) {
-  const countries = Country.getAllCountries();
-  let closestCountry: any = null;
-  let minDistance = Infinity;
-
-  for (const c of countries) {
-    if (!c.latitude || !c.longitude) continue;
-    const cLat = parseFloat(c.latitude);
-    const cLng = parseFloat(c.longitude);
-    if (isNaN(cLat) || isNaN(cLng)) continue;
-
-    const dist = Math.pow(cLat - lat, 2) + Math.pow(cLng - lng, 2);
-    if (dist < minDistance) {
-      minDistance = dist;
-      closestCountry = c;
-    }
-  }
-
-  if (closestCountry) {
-    const cities = City.getCitiesOfCountry(closestCountry.isoCode) || [];
-    let closestCity: any = null;
-    let minCityDist = Infinity;
-
-    // Find the closest city in this country
-    const sampleCities = cities.slice(0, 300); // Sample first 300 for performance
-    for (const city of sampleCities) {
-      if (!city.latitude || !city.longitude) continue;
-      const cityLat = parseFloat(city.latitude);
-      const cityLng = parseFloat(city.longitude);
-      if (isNaN(cityLat) || isNaN(cityLng)) continue;
-
-      const dist = Math.pow(cityLat - lat, 2) + Math.pow(cityLng - lng, 2);
-      if (dist < minCityDist) {
-        minCityDist = dist;
-        closestCity = city;
-      }
-    }
-
-    return {
-      country: closestCountry.name,
-      countryCode: closestCountry.isoCode,
-      city: closestCity ? closestCity.name : (cities[0]?.name || 'Capital')
-    };
-  }
-
-  return null;
-}
 
 // Generate country ISO code matching instead of emoji Flags
 function getCountryCode(countryName: string): string {
@@ -218,12 +168,6 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
   const [countrySuggestions, setCountrySuggestions] = useState<any[]>([]);
   const [citySuggestions, setCitySuggestions] = useState<any[]>([]);
   const [selectedCountryCode, setSelectedCountryCode] = useState('');
-
-  // iOS Photo album simulation states
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanMessage, setScanMessage] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Insights / Analysis interactive states for year statistical groupings
   const [selectedInsightYear, setSelectedInsightYear] = useState<string>('All');
@@ -849,135 +793,6 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
     return list;
   }, [stays, historySortType, historyYearFilter]);
 
-  // Triggers photo import processing
-  const handlePhotoUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsScanning(true);
-    setScanMessage('正在存取您選取的照片相簿範疇...');
-
-    const newScannedStays: Omit<Stay, 'id'>[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setScanMessage(`正在掃描並讀取相片資訊 (${i + 1}/${files.length}): ${file.name}`);
-
-      await new Promise<void>((resolve) => {
-        // Core EXIF GPS metadata parser helper
-        EXIF.getData(file as any, function(this: any) {
-          const lat = EXIF.getTag(this, "GPSLatitude");
-          const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-          const lng = EXIF.getTag(this, "GPSLongitude");
-          const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
-          const dateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-
-          let itemMatched = false;
-
-          // Process and register valid EXIF coordinate metadata if available!
-          if (lat && lng) {
-            const decLat = lat[0] + lat[1] / 60 + lat[2] / 3600;
-            const decLng = lng[0] + lng[1] / 60 + lng[2] / 3600;
-            const finalLat = latRef === "S" ? -decLat : decLat;
-            const finalLng = lngRef === "W" ? -decLng : decLng;
-
-            const match = findClosestCountryAndCity(finalLat, finalLng);
-            if (match) {
-              let formattedDate = '2026-05-26';
-              if (dateStr) {
-                const parts = dateStr.split(' ')[0].split(':');
-                if (parts.length === 3) {
-                  formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
-                }
-              } else {
-                // If EXIF date is missing, parse standard file modified timestamp
-                const fileDate = new Date(file.lastModified);
-                formattedDate = fileDate.toISOString().substring(0, 10);
-              }
-
-              // Calculate start and end date (stays with a buffer of 1-3 days)
-              const duration = Math.floor(Math.random() * 3) + 1;
-              const dateObj = new Date(formattedDate);
-              const endDateObj = new Date(dateObj);
-              endDateObj.setDate(endDateObj.getDate() + duration);
-
-              newScannedStays.push({
-                userId,
-                country: match.country,
-                city: match.city,
-                startDate: dateObj.toISOString().substring(0, 10),
-                endDate: endDateObj.toISOString().substring(0, 10),
-                remark: `相簿匯入自: ${file.name}`,
-                createdAt: new Date().toISOString()
-              });
-              itemMatched = true;
-            }
-          }
-
-          // Smart fallback option: if image has NO EXIF (stripped by browsers)
-          // we match typical locations (Japan, France, S.Korea, Austria) to show high-fidelity results!
-          if (!itemMatched) {
-            const fallbackPool = [
-              { country: 'Japan', city: 'Tokyo', remark: '櫻花祭參訪' },
-              { country: 'France', city: 'Paris', remark: '羅浮宮巡禮' },
-              { country: 'South Korea', city: 'Seoul', remark: '弘大散策' },
-              { country: 'Austria', city: 'Vienna', remark: '維也納音樂廳' }
-            ];
-            const chosen = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
-            const fileDate = new Date(file.lastModified);
-            const formattedDate = fileDate.toISOString().substring(0, 10);
-
-            const duration = Math.floor(Math.random() * 4) + 1;
-            const dateObj = new Date(formattedDate);
-            const endDateObj = new Date(dateObj);
-            endDateObj.setDate(endDateObj.getDate() + duration);
-
-            newScannedStays.push({
-              userId,
-              country: chosen.country,
-              city: chosen.city,
-              startDate: dateObj.toISOString().substring(0, 10),
-              endDate: endDateObj.toISOString().substring(0, 10),
-              remark: `照片智能識別 (${file.name}): ${chosen.remark}`,
-              createdAt: new Date().toISOString()
-            });
-          }
-
-          setTimeout(resolve, 800); // Aesthetic delay for smooth scanning visual
-        });
-      });
-    }
-
-    // Save newly scanned entries to Firestore
-    try {
-      setScanMessage('位置解算完成！正在寫入您的旅遊軌跡...');
-      const batch = writeBatch(db);
-      const tempSaved: Stay[] = [];
-
-      for (const d of newScannedStays) {
-        const newRef = doc(collection(db, 'stays'));
-        batch.set(newRef, d);
-        tempSaved.push({ id: newRef.id, ...d });
-      }
-
-      await batch.commit();
-      setStays(prev => [...tempSaved, ...prev].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()));
-      setIsScanning(false);
-      setShowPermissionModal(false);
-      alert(`成功匯入 ${tempSaved.length} 筆旅遊足跡紀錄！`);
-    } catch (err) {
-      console.error(err);
-      setIsScanning(false);
-      alert('匯入失敗，請重試！');
-    }
-  };
-
-  const triggerFilePicker = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
   if (!isOwnProfile && isTrajectoryPrivate === true) {
     return (
       <div className="fixed inset-0 z-[600] bg-[#f4f3eb] flex flex-col items-center justify-center p-6 text-center text-apple-gray-800">
@@ -1079,21 +894,6 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
             <div className="bg-gradient-to-b from-white to-[#f4f3eb] border-b border-apple-gray-100 flex flex-col items-center py-4 relative">
               <TravelGlobe stays={stays} />
               
-              {/* Photo album scanner button trigger */}
-              {isOwnProfile && (
-                <div className="px-4 w-full max-w-sm mt-1">
-                  <button 
-                    onClick={() => setShowPermissionModal(true)}
-                    className="w-full h-11 rounded-xl bg-apple-blue hover:bg-apple-blue-dark text-white font-bold text-xs flex items-center justify-center gap-2 shadow-apple active:scale-95 transition-all"
-                  >
-                    <Image size={15} />
-                    從相簿匯入旅遊軌跡 (點擊智慧解算)
-                  </button>
-                  <p className="text-[10px] text-center text-apple-gray-400 mt-1.5 italic">
-                    💡 點擊將智慧分析 iOS 相簿中旅遊相片，自動產生出完整年份地區轨迹。
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* List of Stays grouped by Year (same style as Image 2) */}
@@ -1245,7 +1045,7 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
                 <div className="text-center py-16 bg-white rounded-2xl p-6 border border-apple-gray-50">
                   <Globe size={40} className="mx-auto text-apple-gray-200" />
                   <p className="text-sm text-apple-gray-400 mt-2 font-bold">尚無軌跡足跡</p>
-                  <p className="text-xs text-apple-gray-300 mt-1">點擊右上角「+」或讀取相簿來建立精采回憶！</p>
+                  <p className="text-xs text-apple-gray-300 mt-1">點擊右上角「+」新增旅遊軌跡，建立精采回憶！</p>
                 </div>
               )}
             </div>
@@ -1391,7 +1191,7 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-xs text-apple-gray-300 italic">該年度尚無數據可用，請新增或智慧相簿建立軌跡！</p>
+                  <p className="text-xs text-apple-gray-300 italic">該年度尚無數據可用，請新增旅遊軌跡！</p>
                 </div>
               )}
             </div>
@@ -1579,77 +1379,6 @@ export default function TravelTrajectory({ onClose, userId, isOwnProfile, onUser
                   </div>
                 )}
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Standard hidden file reader input for importing photos */}
-      <input 
-        type="file" 
-        multiple 
-        accept="image/*" 
-        ref={fileInputRef} 
-        onChange={handlePhotoUploadChange}
-        className="hidden" 
-      />
-
-      {/* 2. iOS PHOTO ALBUM PERMISSION MODAL MOCKUP (highly realistic) */}
-      <AnimatePresence>
-        {showPermissionModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[20px] max-w-xs w-full overflow-hidden shadow-2xl relative flex flex-col text-center border border-apple-gray-100"
-            >
-              {isScanning ? (
-                <div className="p-6 flex flex-col items-center justify-center py-12">
-                  <div className="w-10 h-10 border-4 border-apple-blue border-t-transparent rounded-full animate-spin mb-4" />
-                  <p className="text-sm font-black text-apple-gray-800">智慧分析相簿軌跡中...</p>
-                  <p className="text-xs text-apple-gray-400 mt-2 px-4 leading-relaxed">{scanMessage}</p>
-                </div>
-              ) : (
-                <>
-                  <div className="p-6 flex flex-col items-center">
-                    <div className="w-14 h-14 bg-apple-blue/5 rounded-2xl flex items-center justify-center text-apple-blue mb-4">
-                      <Image size={28} />
-                    </div>
-                    <h4 className="text-sm font-black text-apple-gray-800">「SyncTime」想要讀取您的照片</h4>
-                    <p className="text-xs text-apple-gray-400 mt-2 leading-relaxed px-2">
-                      我們將讀取選取照片的拍攝日期與座標位置資訊 (EXIF) 進行解算，自動為您生成全天候國家地點旅遊軌跡。
-                    </p>
-                    <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-xl mt-3.5 border border-amber-100">
-                      <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                      <p className="text-[10px] text-amber-800 text-left leading-tight">
-                        💡 貼心提醒: 沙盒模型在缺少 EXIF 座標之照片 (如截圖)，將自動運算相片元特徵進行智能軌跡建立。
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col border-t border-apple-gray-100 divide-y divide-apple-gray-100 text-sm font-semibold">
-                    <button 
-                      onClick={triggerFilePicker}
-                      className="h-11 text-apple-blue active:bg-apple-gray-50 flex items-center justify-center bg-white"
-                    >
-                      允許讀取所有照片
-                    </button>
-                    <button 
-                      onClick={triggerFilePicker}
-                      className="h-11 text-apple-blue active:bg-apple-gray-50 flex items-center justify-center bg-white"
-                    >
-                      僅選取拍照與位置...
-                    </button>
-                    <button 
-                      onClick={() => setShowPermissionModal(false)}
-                      className="h-11 text-red-500 font-bold active:bg-apple-gray-50 flex items-center justify-center bg-white"
-                    >
-                      不允許
-                    </button>
-                  </div>
-                </>
-              )}
             </motion.div>
           </div>
         )}
